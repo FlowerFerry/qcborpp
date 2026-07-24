@@ -179,3 +179,39 @@ TEST_CASE("convenience: combined usage", "[convenience]") {
     CHECK(m["flag"].get_or(true) == true);  // missing → default
     CHECK(m.size() == 5);
 }
+
+// ===== value_or — syntactic sugar on map_scope =====
+
+TEST_CASE("convenience: value_or — string key, existing", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    CHECK(m.value_or("count", 0) == 42);
+    CHECK(m.value_or("name", std::string_view{"fallback"}) == "Niels");
+    CHECK(m.value_or("active", false) == true);
+}
+
+TEST_CASE("convenience: value_or — string key, missing returns default", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    CHECK(m.value_or("ghost", -1) == -1);
+    CHECK(m.value_or("nope", std::string_view{"default"}) == "default");
+    CHECK(m.value_or("no_double", 3.14) == 3.14);
+}
+
+TEST_CASE("convenience: value_or — int literal deduces correctly", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    // 0 is int, maps to int64_t via get_or(int)
+    CHECK(m.value_or("count", 0) == 42);
+    // missing → default int
+    CHECK(m.value_or("missing", 99) == 99);
+}

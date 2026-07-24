@@ -348,6 +348,33 @@ public:
     item_proxy operator[](int key);
 
     /**
+     * @brief  Look up key and return its value, or a default if not found.
+     *
+     * Syntax sugar: m.value_or("port", 8080) instead of m["port"].get_or(8080).
+     * For string keys, auto-prefetches if needed, then returns the cached
+     * value if the key exists, otherwise returns the provided default.
+     *
+     * @tparam T  Default value type (must match one of the get_or overloads).
+     * @param  key    The string key to look up.
+     * @param  def    Default value returned when key is absent.
+     * @return The value associated with key, or def.
+     */
+    template<typename T>
+    T value_or(std::string_view key, T def) const {
+        auto& self = const_cast<map_scope&>(*this);
+        return self[key].get_or(std::move(def));
+    }
+
+    /**
+     * @brief  Look up integer key and return its value, or a default.
+     */
+    template<typename T>
+    T value_or(int64_t key, T def) const {
+        auto& self = const_cast<map_scope&>(*this);
+        return self[key].get_or(std::move(def));
+    }
+
+    /**
      * @brief  Check whether a key exists in this map.
      *
      * Auto-prefetches if not already prefetched, then checks the cache.

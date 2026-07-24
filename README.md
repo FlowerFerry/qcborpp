@@ -395,6 +395,76 @@ m.get_items(specs, out);                    // single pass for all keys
 auto v = int64_t{m["key1"]};               // scans on first access
 ```
 
+### Safe Decode: get_or, contains, size, for_each
+
+Convenience methods inspired by `nlohmann/json` that eliminate try/catch boilerplate and
+make decode code safer and more readable.
+
+**get_or — safe access with default fallback:**
+
+```cpp
+auto m = dec.map();
+int64_t port = m["port"].get_or(8080);           // missing key → default
+auto name    = m["name"].get_or(std::string_view{"anonymous"});
+bool debug   = m["debug"].get_or(false);
+double ratio = m["ratio"].get_or(0.5);
+// Also works for uint64_t, and has an int overload for literals:
+int64_t count = m["count"].get_or(0);            // 0 deduces to int → int64_t
+```
+
+**value_or — even shorter: key+default on the map itself:**
+
+```cpp
+auto m = dec.map();
+int64_t port  = m.value_or("port", 8080);        // one call, no operator[]
+auto name     = m.value_or("name", std::string_view{"anonymous"});
+bool debug    = m.value_or("debug", false);
+// Also supports int64_t key:
+int64_t val   = m.value_or(42, -1);
+```
+
+**contains — key existence check without consuming the cursor:**
+
+```cpp
+auto m = dec.map();
+if (m.contains("optional_field")) {
+    auto val = m["optional_field"];               // safe to access after check
+}
+// contains() auto-prefetches; subsequent operator[] is O(1) from cache
+```
+
+**size — map entry count:**
+
+```cpp
+auto m = dec.map();
+size_t n = m.size();                               // key-value pair count from CBOR header
+// array_scope::size() also available for arrays
+```
+
+**for_each — iterate all entries in one pass:**
+
+```cpp
+auto m = dec.map();
+m.for_each([](std::string_view key, decoded_item val) {
+    if (key == "name") {
+        std::string_view name = val.value.text;
+        // ...
+    }
+});
+// for_each auto-prefetches and returns *this for chaining
+```
+
+**Combined pattern:**
+
+```cpp
+auto m = dec.map();
+if (m.contains("items") && m.size() > 0) {
+    auto items = m["items"].as_array();
+    // ...
+}
+int64_t count = m["count"].get_or(0);
+```
+
 ### Error Handling
 
 ```cpp
