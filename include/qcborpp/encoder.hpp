@@ -203,6 +203,8 @@ public:
     void operator=(const char* v);
     /** @brief  Assign an IEEE 754 double. */
     void operator=(double v);
+    /** @brief  Assign an IEEE 754 single-precision float (promoted to double). */
+    void operator=(float v);
     /** @brief  Assign a boolean. */
     void operator=(bool v);
     /** @brief  Assign the CBOR null literal. */
@@ -277,6 +279,11 @@ public:
     basic_map_builder& merge(std::string_view key, double v);
     basic_map_builder& merge(std::string_view key, bool v);
     basic_map_builder& merge(std::string_view key, std::nullptr_t);
+    basic_map_builder& merge(std::string_view key, uint64_t v);
+    basic_map_builder& merge(std::string_view key, const_byte_span v);
+    basic_map_builder& merge(std::string_view key, std::chrono::system_clock::time_point tp);
+    template<typename Rep, typename Period>
+    basic_map_builder& merge(std::string_view key, std::chrono::duration<Rep, Period> d);
 };
 
 // ============================================================================
@@ -311,6 +318,7 @@ public:
     basic_array_builder& add(std::string_view v);
     basic_array_builder& add(const char* v);
     basic_array_builder& add(double v);
+    basic_array_builder& add(float v);
     basic_array_builder& add(bool v);
     basic_array_builder& add(std::nullptr_t);
     basic_array_builder& add(const_byte_span v);
@@ -323,6 +331,7 @@ public:
     basic_array_builder& operator<<(std::string_view v);
     basic_array_builder& operator<<(const char* v);
     basic_array_builder& operator<<(double v);
+    basic_array_builder& operator<<(float v);
     basic_array_builder& operator<<(bool v);
     basic_array_builder& operator<<(std::nullptr_t v);
     basic_array_builder& operator<<(const_byte_span v);
@@ -811,6 +820,11 @@ inline void basic_key_proxy<Enc>::operator=(double v) {
     enc_->add_double(v);
 }
 template<typename Enc>
+inline void basic_key_proxy<Enc>::operator=(float v) {
+    close_if_owns();
+    enc_->add_double(static_cast<double>(v));
+}
+template<typename Enc>
 inline void basic_key_proxy<Enc>::operator=(bool v) {
     close_if_owns();
     enc_->add_bool(v);
@@ -1045,6 +1059,11 @@ inline basic_array_builder<Enc>& basic_array_builder<Enc>::add(double v) {
     return *this;
 }
 template<typename Enc>
+inline basic_array_builder<Enc>& basic_array_builder<Enc>::add(float v) {
+    enc_->add_float(v);
+    return *this;
+}
+template<typename Enc>
 inline basic_array_builder<Enc>& basic_array_builder<Enc>::add(bool v) {
     enc_->add_bool(v);
     return *this;
@@ -1074,6 +1093,8 @@ template<typename Enc>
 inline basic_array_builder<Enc>& basic_array_builder<Enc>::operator<<(const char* v)      { return add(v); }
 template<typename Enc>
 inline basic_array_builder<Enc>& basic_array_builder<Enc>::operator<<(double v)           { return add(v); }
+template<typename Enc>
+inline basic_array_builder<Enc>& basic_array_builder<Enc>::operator<<(float v)            { return add(v); }
 template<typename Enc>
 inline basic_array_builder<Enc>& basic_array_builder<Enc>::operator<<(bool v)             { return add(v); }
 template<typename Enc>

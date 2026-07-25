@@ -453,6 +453,19 @@ public:
     map_scope& for_each(F&& visitor);
 
     /**
+     * @brief  Iterate all integer-keyed entries in this map via a callback.
+     *
+     * Auto-prefetches if not already prefetched. The visitor receives
+     * an int64_t key and a decoded_item value. String-keyed entries are
+     * skipped.
+     *
+     * @param visitor  Callable invoked for each (key, value) pair.
+     * @return *this for chaining.
+     */
+    template<typename F>
+    map_scope& for_each_int(F&& visitor);
+
+    /**
      * @brief  Look up an item by null-terminated string label.
      * @param key  Pointer to a null-terminated label string.
      * @return An item_proxy bound to this label.
@@ -1196,6 +1209,14 @@ inline map_scope& map_scope::for_each(F&& visitor) {
     // Integer-keyed entries are not in the cache.
     for (auto& [key, val] : cache_)
         visitor(std::string_view(key), val);
+    return *this;
+}
+
+template<typename F>
+inline map_scope& map_scope::for_each_int(F&& visitor) {
+    if (!prefetched_) prefetch();
+    for (auto& entry : int_cache_)
+        visitor(entry.first, entry.second);
     return *this;
 }
 
