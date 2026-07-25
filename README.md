@@ -404,6 +404,16 @@ m.merge("version", 1.5);
 m.merge("flag", nullptr);
 ```
 
+**Additional types (uint64_t, byte span, chrono):**
+
+```cpp
+auto m = enc.map();
+m.merge("max_val", uint64_t(18446744073709551615ULL));
+m.merge("blob", const_byte_span{raw_data, len});
+m.merge("timestamp", std::chrono::system_clock::now());
+m.merge("expiry", std::chrono::days(30));
+```
+
 ### Decode Performance — pick your strategy
 
 ```cpp
@@ -524,6 +534,18 @@ m.for_each([](std::string_view key, decoded_item val) {
     }
 });
 // for_each auto-prefetches and returns *this for chaining
+```
+
+**for_each_int — iterate integer-keyed entries:**
+
+```cpp
+auto m = dec.map();
+m.for_each_int([](int64_t key, decoded_item val) {
+    // key is the CBOR integer label
+    int64_t v = val.value.int64;
+    // ...
+});
+// for_each_int auto-prefetches and returns *this for chaining
 ```
 
 **Combined pattern:**
@@ -694,6 +716,7 @@ using dynamic_map_builder = basic_map_builder<dynamic_encoder>;
 | `operator=(bool)` | Assign boolean value |
 | `operator=(std::nullptr_t)` | Assign CBOR null |
 | `operator=(const_byte_span)` | Assign byte string |
+| `operator=(float)` | Assign float (promoted to double) |
 | `operator=(std::chrono::system_clock::time_point)` | Assign as epoch date (tag 1) |
 | `operator=(std::chrono::duration<Rep,Period>)` | Assign as epoch days (tag 100) |
 | `map()` | Open nested map; returns `basic_map_builder<Enc>` |
@@ -727,8 +750,8 @@ using dynamic_array_builder = basic_array_builder<dynamic_encoder>;
 ```
 | Method | Description |
 |--------|-------------|
-| `add(T v)` | Add element of type T |
-| `operator<<(T v)` | Stream-style add |
+|| `add(T v)` | Add element of type T (int64_t, uint64_t, string_view, double, float, bool, nullptr, const_byte_span) |
+|| `operator<<(T v)` | Stream-style add (same types as add) |
 | `add_map()` | Add nested map element, returns `basic_map_builder<Enc>` |
 | `add_array()` | Add nested array element, returns `basic_array_builder<Enc>` |
 
@@ -766,7 +789,8 @@ decoder dec(const_byte_span data);
 | `contains(int64_t)` | Auto-prefetches; check if an int-key exists |
 | `size()` | Entry count (auto-prefetches) |
 | `empty()` | True if size == 0 (auto-prefetches) |
-| `for_each(f)` | Iterate (key, item_proxy) pairs (auto-prefetches) |
+| `for_each(f)` | Iterate (key, item_proxy) pairs — string keys only (auto-prefetches) |
+| `for_each_int(f)` | Iterate (int64_t key, decoded_item val) — int keys only (auto-prefetches) |
 | `get_or(key, def)` | Lookup with fallback; returns decoded_item |
 | `try_get<T>(key)` | Lookup returning `std::optional<T>` |
 

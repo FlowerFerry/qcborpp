@@ -999,6 +999,25 @@ template<typename Enc>
 inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key, std::nullptr_t) {
     (*this)[key] = nullptr; return *this;
 }
+template<typename Enc>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key, uint64_t v) {
+    (*this)[key] = v; return *this;
+}
+template<typename Enc>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key, const_byte_span v) {
+    (*this)[key] = v; return *this;
+}
+template<typename Enc>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key,
+                                                             std::chrono::system_clock::time_point tp) {
+    (*this)[key] = tp; return *this;
+}
+template<typename Enc>
+template<typename Rep, typename Period>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key,
+                                                             std::chrono::duration<Rep, Period> d) {
+    (*this)[key] = d; return *this;
+}
 
 // ============================================================================
 // basic_array_builder<Enc> INLINE BODIES

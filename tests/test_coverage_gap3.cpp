@@ -235,3 +235,158 @@ TEST_CASE("item_proxy: operator[] with int subscript", "[decoder][coverage3]") {
     REQUIRE(outer[key].as_string() == "ninety-nine");
     dec.finish();
 }
+
+// ============================================================================
+// key_proxy: operator=(float)
+// ============================================================================
+
+TEST_CASE("key_proxy: operator= with float", "[dynamic_encoder][coverage3]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["pi_f"] = 3.14f;
+        m["pi_d"] = 3.14159;
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+    // float stored as CBOR double, decoded as double
+    auto pi_f_val = m["pi_f"].get_double();
+    REQUIRE((pi_f_val > 3.139 && pi_f_val < 3.141));
+    auto pi_d_val = m["pi_d"].get_double();
+    REQUIRE((pi_d_val > 3.14158 && pi_d_val < 3.1416));
+    dec.finish();
+}
+
+// ============================================================================
+// array_builder: add(float) + operator<<(float)
+// ============================================================================
+
+TEST_CASE("array_builder: add(float) and operator<<(float)", "[dynamic_encoder][coverage3]") {
+    dynamic_encoder enc;
+    {
+        auto a = enc.array();
+        a.add(1.5f);
+        a << 2.25f << 3.0f;
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto a = dec.array();
+    auto v1 = a.next().get_double();
+    REQUIRE((v1 > 1.49 && v1 < 1.51));
+    auto v2 = a.next().get_double();
+    REQUIRE((v2 > 2.24 && v2 < 2.26));
+    auto v3 = a.next().get_double();
+    REQUIRE((v3 > 2.99 && v3 < 3.01));
+    dec.finish();
+}
+
+// ============================================================================
+// merge: uint64_t / const_byte_span / chrono
+// ============================================================================
+
+TEST_CASE("merge: uint64_t value", "[dynamic_encoder][coverage3]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m.merge("big", uint64_t(18446744073709551615ULL));
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(m["big"].as_uint64() == 18446744073709551615ULL);
+    dec.finish();
+}
+
+TEST_CASE("merge: const_byte_span value", "[dynamic_encoder][coverage3]") {
+    uint8_t raw[] = {0xDE, 0xAD, 0xBE, 0xEF};
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m.merge("magic", const_byte_span{raw, sizeof(raw)});
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+    auto bs = m["magic"].as_bytes();
+    REQUIRE(bs.size() == 4);
+    REQUIRE(bs[0] == 0xDE);
+    REQUIRE(bs[3] == 0xEF);
+    dec.finish();
+}
+
+TEST_CASE("merge: chrono time_point", "[dynamic_encoder][coverage3]") {
+    using namespace std::chrono;
+    auto tp = system_clock::from_time_t(1712966400); // 2024-04-13T00:00:00Z
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m.merge("ts", tp);
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+    // Round-trip: epoch seconds
+    REQUIRE(m["ts"].as_date_epoch() == 1712966400);
+    dec.finish();
+}
+
+TEST_CASE("merge: chrono duration (epoch days)", "[dynamic_encoder][coverage3]") {
+    using namespace std::chrono;
+    auto d = duration<int64_t, std::ratio<86400>>(20000); // 20,000 days
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m.merge("days", d);
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(m["days"].as_days_epoch() == 20000);
+    dec.finish();
+}
+
+// ============================================================================
+// map_scope: for_each_int
+// ============================================================================
+
+TEST_CASE("map_scope: for_each_int iterates int-keyed entries", "[decoder][coverage3]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m[1] = "one";
+        m[2] = "two";
+        m[3] = "three";
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+    std::vector<std::pair<int64_t, std::string>> result;
+    m.for_each_int([&](int64_t key, decoded_item val) {
+        result.emplace_back(key, std::string(val.value.text.data(), val.value.text.size()));
+    });
+    REQUIRE(result.size() == 3);
+    // Prefetch order should be stable
+    REQUIRE(result[0].first == 1);
+    REQUIRE(result[1].first == 2);
+    REQUIRE(result[2].first == 3);
+    REQUIRE(result[0].second == "one");
+    REQUIRE(result[1].second == "two");
+    REQUIRE(result[2].second == "three");
+    dec.finish();
+}
+
+TEST_CASE("map_scope: for_each_int empty map", "[decoder][coverage3]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["only_str"] = "hello";
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+    bool visited = false;
+    m.for_each_int([&](int64_t, decoded_item) { visited = true; });
+    REQUIRE_FALSE(visited);
+    dec.finish();
+}
