@@ -793,6 +793,16 @@ public:
      */
     bool is_container() const;
 
+    /**
+     * @brief  Check if the item carries a CBOR tag (major type 6).
+     *
+     * Returns true when type() is one of the semantic tagged types —
+     * e.g. cbor_type::uri, cbor_type::base64, cbor_type::date_epoch, etc.
+     *
+     * @return true if the item is tagged.
+     */
+    bool is_tag() const;
+
     // ── tagged getters ──
 
     /**
@@ -1613,6 +1623,14 @@ inline bool item_proxy::is_simple() const {
 }
 inline bool item_proxy::is_container() const {
     auto t = type(); return t == cbor_type::map || t == cbor_type::array;
+}
+
+inline bool item_proxy::is_tag() const {
+    auto t = static_cast<uint8_t>(type());
+    // Tagged types: bignums (9-12), decimal_fraction/bigfloat (14-19),
+    // wrapped_cbor (36), text-tag group (44-49), binary_mime/days (76-78)
+    return (t >= 9 && t <= 12) || (t >= 14 && t <= 19)
+        || t == 36 || (t >= 44 && t <= 49) || (t >= 76 && t <= 78);
 }
 
 // ── item_proxy nested key chaining ──
