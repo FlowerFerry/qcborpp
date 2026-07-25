@@ -76,8 +76,8 @@ TEST_CASE("static_encoder: add_uint64 roundtrip", "[static_encoder]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(uint64_t(a.next()) == 0);
-    REQUIRE(uint64_t(a.next()) == 10000000000ULL);
+    REQUIRE(int64_t(a.next()) == 0);
+    REQUIRE(int64_t(a.next()) == 10000000000ULL);
     dec.finish();
 }
 
@@ -505,7 +505,7 @@ TEST_CASE("static_encoder: array_builder add overloads", "[static_encoder]") {
     decoder dec(data);
     auto a = dec.array();
     REQUIRE(int64_t(a.next()) == 1);
-    REQUIRE(uint64_t(a.next()) == 2);
+    REQUIRE(int64_t(a.next()) == 2);
     REQUIRE(std::string_view(a.next()) == "text");
     REQUIRE(bool(a.next()) == true);
     dec.finish();

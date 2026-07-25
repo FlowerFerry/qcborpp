@@ -114,8 +114,8 @@ TEST_CASE("cross_val: qcbor-c→qcborpp uint64", "[cross_validation]") {
 
     decoder dec(const_byte_span{bytes.data(), bytes.size()});
     auto a = dec.array();
-    REQUIRE(uint64_t(a.next()) == 100);
-    REQUIRE(uint64_t(a.next()) == 10000000000ULL);
+    REQUIRE(int64_t(a.next()) == 100);
+    REQUIRE(int64_t(a.next()) == 10000000000ULL);
     dec.finish();
 }
 

@@ -48,7 +48,7 @@ TEST_CASE("dynamic_encoder: auto add unsigned int", "[dynamic_encoder][coverage2
     auto data = enc.finish();
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(static_cast<uint64_t>(a.next()) == 42u);
+    REQUIRE(static_cast<int64_t>(a.next()) == 42);
     dec.finish();
 }
 

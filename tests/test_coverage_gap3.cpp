@@ -97,7 +97,7 @@ TEST_CASE("auto: operator<< unsigned int", "[dynamic_encoder][coverage3]") {
     auto data = enc.finish();
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(uint64_t(a.next()) == 42u);
+    REQUIRE(int64_t(a.next()) == 42);
     dec.finish();
 }
 

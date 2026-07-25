@@ -363,6 +363,7 @@ public:
     template<typename T>
     T get_or(std::string_view key, T def) const {
         auto& self = const_cast<map_scope&>(*this);
+        if (!self.prefetched_) self.prefetch();
         return self[key].get_or(std::move(def));
     }
 
@@ -372,6 +373,7 @@ public:
     template<typename T>
     T get_or(int64_t key, T def) const {
         auto& self = const_cast<map_scope&>(*this);
+        if (!self.prefetched_) self.prefetch();
         return self[key].get_or(std::move(def));
     }
 
@@ -386,6 +388,7 @@ public:
     template<typename T>
     std::optional<T> try_get(std::string_view key) const noexcept {
         auto& self = const_cast<map_scope&>(*this);
+        if (!self.prefetched_) self.prefetch();
         return self[key].try_get<T>();
     }
 
@@ -491,6 +494,17 @@ class item_proxy {
 
     item_proxy(decoder& d, const std::string& label, bool is_int, int64_t ilabel) noexcept
         : dec_(&d), is_int_label_(is_int), int_label_(ilabel), str_label_(label) {}
+
+    // Throw if cached_ type does not match expected, otherwise no-op.
+    // Called from as_*() cached paths so get_or/try_get catch type mismatches.
+    void check_cache_type(cbor_type expected) const {
+        if (!has_cached_ || cached_.type == expected) return;
+        // bool special case: both true_v and false_v are valid
+        if (expected == cbor_type::true_v && cached_.type == cbor_type::false_v) return;
+        if (expected == cbor_type::false_v && cached_.type == cbor_type::true_v) return;
+        dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+        dec_->check_err();
+    }
 
 public:
     // ── implicit conversions ──
@@ -1243,7 +1257,7 @@ inline bool item_proxy::get_or(bool default_val) const noexcept {
 }
 
 inline int64_t item_proxy::as_int64() const {
-    if (has_cached_) return cached_.value.int64_val;
+    if (has_cached_) { check_cache_type(cbor_type::int64); return cached_.value.int64_val; }
     int64_t v = 0;
     if (is_int_label_) {
         QCBORDecode_GetInt64InMapN(dec_->raw_ctx(), int_label_, &v);
@@ -1257,7 +1271,7 @@ inline int64_t item_proxy::as_int64() const {
 }
 
 inline uint64_t item_proxy::as_uint64() const {
-    if (has_cached_) return cached_.value.uint64_val;
+    if (has_cached_) { check_cache_type(cbor_type::uint64); return cached_.value.uint64_val; }
     uint64_t v = 0;
     if (is_int_label_) {
         QCBORDecode_GetUInt64InMapN(dec_->raw_ctx(), int_label_, &v);
@@ -1271,7 +1285,7 @@ inline uint64_t item_proxy::as_uint64() const {
 }
 
 inline std::string_view item_proxy::as_string() const {
-    if (has_cached_) return cached_.value.text;
+    if (has_cached_) { check_cache_type(cbor_type::text_string); return cached_.value.text; }
     UsefulBufC text{nullptr, 0};
     if (is_int_label_) {
         QCBORDecode_GetTextStringInMapN(dec_->raw_ctx(), int_label_, &text);
@@ -1285,7 +1299,7 @@ inline std::string_view item_proxy::as_string() const {
 }
 
 inline const_byte_span item_proxy::as_bytes() const {
-    if (has_cached_) return cached_.value.bytes;
+    if (has_cached_) { check_cache_type(cbor_type::byte_string); return cached_.value.bytes; }
     UsefulBufC bytes{nullptr, 0};
     if (is_int_label_) {
         QCBORDecode_GetByteStringInMapN(dec_->raw_ctx(), int_label_, &bytes);
@@ -1299,7 +1313,7 @@ inline const_byte_span item_proxy::as_bytes() const {
 }
 
 inline double item_proxy::as_double() const {
-    if (has_cached_) return cached_.value.double_val;
+    if (has_cached_) { check_cache_type(cbor_type::double_v); return cached_.value.double_val; }
     double v = 0.0;
     if (is_int_label_) {
         QCBORDecode_GetDoubleInMapN(dec_->raw_ctx(), int_label_, &v);
@@ -1313,7 +1327,7 @@ inline double item_proxy::as_double() const {
 }
 
 inline bool item_proxy::as_bool() const {
-    if (has_cached_) return cached_.value.bool_val;
+    if (has_cached_) { check_cache_type(cbor_type::true_v); return cached_.value.bool_val; }
     bool v = false;
     if (is_int_label_) {
         QCBORDecode_GetBoolInMapN(dec_->raw_ctx(), int_label_, &v);

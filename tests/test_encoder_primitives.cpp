@@ -63,8 +63,8 @@ TEST_CASE("dynamic_encoder: add_uint64", "[dynamic_encoder][primitives]") {
 
     decoder dec(data);
     auto arr = dec.array();
-    REQUIRE(static_cast<uint64_t>(arr.next()) == 0);
-    REQUIRE(static_cast<uint64_t>(arr.next()) == 1);
+    REQUIRE(static_cast<int64_t>(arr.next()) == 0);
+    REQUIRE(static_cast<int64_t>(arr.next()) == 1);
     REQUIRE(static_cast<uint64_t>(arr.next()) == UINT64_MAX);
     dec.finish();
 }
