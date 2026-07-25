@@ -759,11 +759,16 @@ decoder dec(const_byte_span data);
 #### `item_proxy` — returned by `m["key"]`
 | Method | Description |
 |--------|-------------|
-| **Implicit conversions** | `int64_t`, `uint64_t`, `std::string_view`, `double`, `bool`, `const_byte_span` |
-| `as_int64()` / `as_uint64()` | Explicit integer getter |
+| **Implicit conversions** | `int64_t`, `uint64_t`, `std::string_view`, `double`, `bool`, `const_byte_span` — loose cross-numeric convert |
+| `get_int64()` / `get_uint64()` | Loose integer getter (accepts int64/uint64/double/float) |
+| `get_double()` | Loose double getter (accepts double/float/int64/uint64) |
+| `as_int64()` / `as_uint64()` | Strict integer getter (exact type match only) |
+| `as_double()` | Strict double getter |
 | `as_string()` | Explicit UTF-8 text getter |
 | `as_bytes()` | Explicit byte string getter |
-| `as_double()` / `as_bool()` | Explicit scalar getters |
+| `as_bool()` | Explicit bool getter |
+| `get_or(T default_val)` | Return value or default on missing key / type mismatch (uses loose convert for numeric T) |
+| `try_get<T>()` | Return `std::optional<T>` (uses loose convert for numeric T) |
 | `as_map()` / `as_array()` | Enter nested map/array |
 | `as_date_string()` / `as_days_string()` | Tagged string getters |
 | `as_date_epoch()` / `as_days_epoch()` | Tagged epoch getters (int64_t) |

@@ -649,6 +649,12 @@ public:
      */
     bool             as_bool() const;
 
+    // ── loose numeric getters (cross-type convert) ──
+
+    int64_t  get_int64() const;
+    uint64_t get_uint64() const;
+    double   get_double() const;
+
     // ── sub-structures ──
 
     /**
@@ -1227,21 +1233,21 @@ inline item_proxy array_scope::next() {
 
 // ── item_proxy implicit conversions ──
 
-inline item_proxy::operator int64_t() const { return as_int64(); }
-inline item_proxy::operator uint64_t() const { return as_uint64(); }
+inline item_proxy::operator int64_t() const { return get_int64(); }
+inline item_proxy::operator uint64_t() const { return get_uint64(); }
 inline item_proxy::operator std::string_view() const { return as_string(); }
-inline item_proxy::operator double() const { return as_double(); }
+inline item_proxy::operator double() const { return get_double(); }
 inline item_proxy::operator bool() const { return as_bool(); }
 inline item_proxy::operator const_byte_span() const { return as_bytes(); }
 
 // ── get_or safe access ──
 
 inline int64_t item_proxy::get_or(int64_t default_val) const noexcept {
-    try { return as_int64(); } catch (...) { return default_val; }
+    try { return get_int64(); } catch (...) { return default_val; }
 }
 
 inline uint64_t item_proxy::get_or(uint64_t default_val) const noexcept {
-    try { return as_uint64(); } catch (...) { return default_val; }
+    try { return get_uint64(); } catch (...) { return default_val; }
 }
 
 inline std::string_view item_proxy::get_or(std::string_view default_val) const noexcept {
@@ -1249,11 +1255,97 @@ inline std::string_view item_proxy::get_or(std::string_view default_val) const n
 }
 
 inline double item_proxy::get_or(double default_val) const noexcept {
-    try { return as_double(); } catch (...) { return default_val; }
+    try { return get_double(); } catch (...) { return default_val; }
 }
 
 inline bool item_proxy::get_or(bool default_val) const noexcept {
     try { return as_bool(); } catch (...) { return default_val; }
+}
+
+// ── loose numeric getters (cross-type convert) ──
+
+inline int64_t item_proxy::get_int64() const {
+    if (has_cached_) {
+        switch (cached_.type) {
+        case cbor_type::int64:  return cached_.value.int64_val;
+        case cbor_type::uint64: return static_cast<int64_t>(cached_.value.uint64_val);
+        case cbor_type::double_v: return static_cast<int64_t>(std::llround(cached_.value.double_val));
+        case cbor_type::float_v:  return static_cast<int64_t>(std::llround(cached_.value.float_val));
+        default:
+            dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+            dec_->check_err();
+            return 0;
+        }
+    }
+    int64_t v = 0;
+    if (is_int_label_) {
+        QCBORDecode_GetInt64ConvertInMapN(dec_->raw_ctx(), int_label_,
+            QCBOR_CONVERT_TYPE_XINT64 | QCBOR_CONVERT_TYPE_FLOAT, &v);
+    } else if (!str_label_.empty()) {
+        QCBORDecode_GetInt64ConvertInMapSZ(dec_->raw_ctx(), str_label_.c_str(),
+            QCBOR_CONVERT_TYPE_XINT64 | QCBOR_CONVERT_TYPE_FLOAT, &v);
+    } else {
+        QCBORDecode_GetInt64Convert(dec_->raw_ctx(),
+            QCBOR_CONVERT_TYPE_XINT64 | QCBOR_CONVERT_TYPE_FLOAT, &v);
+    }
+    dec_->check_err();
+    return v;
+}
+
+inline uint64_t item_proxy::get_uint64() const {
+    if (has_cached_) {
+        switch (cached_.type) {
+        case cbor_type::uint64: return cached_.value.uint64_val;
+        case cbor_type::int64:  return static_cast<uint64_t>(cached_.value.int64_val);
+        case cbor_type::double_v: return static_cast<uint64_t>(std::llround(cached_.value.double_val));
+        case cbor_type::float_v:  return static_cast<uint64_t>(std::llround(cached_.value.float_val));
+        default:
+            dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+            dec_->check_err();
+            return 0;
+        }
+    }
+    uint64_t v = 0;
+    if (is_int_label_) {
+        QCBORDecode_GetUInt64ConvertInMapN(dec_->raw_ctx(), int_label_,
+            QCBOR_CONVERT_TYPE_XINT64, &v);
+    } else if (!str_label_.empty()) {
+        QCBORDecode_GetUInt64ConvertInMapSZ(dec_->raw_ctx(), str_label_.c_str(),
+            QCBOR_CONVERT_TYPE_XINT64, &v);
+    } else {
+        QCBORDecode_GetUInt64Convert(dec_->raw_ctx(),
+            QCBOR_CONVERT_TYPE_XINT64, &v);
+    }
+    dec_->check_err();
+    return v;
+}
+
+inline double item_proxy::get_double() const {
+    if (has_cached_) {
+        switch (cached_.type) {
+        case cbor_type::double_v: return cached_.value.double_val;
+        case cbor_type::float_v:  return static_cast<double>(cached_.value.float_val);
+        case cbor_type::int64:    return static_cast<double>(cached_.value.int64_val);
+        case cbor_type::uint64:   return static_cast<double>(cached_.value.uint64_val);
+        default:
+            dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+            dec_->check_err();
+            return 0.0;
+        }
+    }
+    double v = 0.0;
+    if (is_int_label_) {
+        QCBORDecode_GetDoubleConvertInMapN(dec_->raw_ctx(), int_label_,
+            QCBOR_CONVERT_TYPE_XINT64 | QCBOR_CONVERT_TYPE_FLOAT, &v);
+    } else if (!str_label_.empty()) {
+        QCBORDecode_GetDoubleConvertInMapSZ(dec_->raw_ctx(), str_label_.c_str(),
+            QCBOR_CONVERT_TYPE_XINT64 | QCBOR_CONVERT_TYPE_FLOAT, &v);
+    } else {
+        QCBORDecode_GetDoubleConvert(dec_->raw_ctx(),
+            QCBOR_CONVERT_TYPE_XINT64 | QCBOR_CONVERT_TYPE_FLOAT, &v);
+    }
+    dec_->check_err();
+    return v;
 }
 
 inline int64_t item_proxy::as_int64() const {

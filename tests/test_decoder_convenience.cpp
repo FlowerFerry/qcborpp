@@ -292,6 +292,109 @@ TEST_CASE("convenience: try_get(map) — type mismatch returns nullopt", "[conve
     CHECK_FALSE(v.has_value());
 }
 
+// ===== get_* — cross-numeric convert =====
+
+TEST_CASE("convenience: get_int64 — converts uint64", "[convenience]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["uval"] = uint64_t(42);
+        m["dval"] = 3.14;
+    }
+    decoder dec(enc.finish());
+    auto m = dec.map();
+
+    CHECK(m["uval"].get_int64() == 42);
+    CHECK(m["dval"].get_int64() == 3);  // llround(3.14) = 3
+}
+
+TEST_CASE("convenience: get_int64 — rejects non-numeric", "[convenience]") {
+    uint8_t buf[128];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    CHECK(m["name"].get_or(int64_t(-1)) == -1);  // "name" is string → default
+}
+
+TEST_CASE("convenience: get_uint64 — converts int64", "[convenience]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["ival"] = int64_t(100);
+    }
+    decoder dec(enc.finish());
+    auto m = dec.map();
+
+    CHECK(m["ival"].get_uint64() == 100);
+}
+
+TEST_CASE("convenience: get_double — converts int64 and uint64", "[convenience]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["ival"] = int64_t(7);
+        m["uval"] = uint64_t(99);
+    }
+    decoder dec(enc.finish());
+    auto m = dec.map();
+
+    CHECK(m["ival"].get_double() == 7.0);
+    CHECK(m["uval"].get_double() == 99.0);
+}
+
+TEST_CASE("convenience: as_int64 — still strict rejects uint64", "[convenience]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["uval"] = UINT64_MAX;  // > INT64_MAX → QCBOR encodes as uint64
+    }
+    decoder dec(enc.finish());
+    auto m = dec.map();
+
+    CHECK_THROWS_AS(m["uval"].as_int64(), error);
+}
+
+// ===== get_or — cross-numeric convert =====
+
+TEST_CASE("convenience: get_or int64 — converts uint64", "[convenience]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    { auto m = enc.map(); m["val"] = uint64_t(77); }
+    decoder dec(enc.finish());
+    auto m = dec.map();
+
+    CHECK(m["val"].get_or(int64_t(-1)) == 77);
+}
+
+TEST_CASE("convenience: get_or double — converts int64", "[convenience]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    { auto m = enc.map(); m["val"] = int64_t(3); }
+    decoder dec(enc.finish());
+    auto m = dec.map();
+
+    CHECK(m["val"].get_or(0.0) == 3.0);
+}
+
+// ===== try_get — cross-numeric convert =====
+
+TEST_CASE("convenience: try_get int64_t — converts double", "[convenience]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    { auto m = enc.map(); m["val"] = 3.14; }
+    decoder dec(enc.finish());
+    auto m = dec.map();
+
+    auto v = m.try_get<int64_t>("val");
+    REQUIRE(v.has_value());
+    CHECK(*v == 3);
+}
+
 // ===== empty — map_scope emptiness check =====
 
 TEST_CASE("convenience: empty — non-empty map returns false", "[convenience]") {
