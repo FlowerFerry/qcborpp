@@ -1537,29 +1537,29 @@ inline std::string_view item_proxy::as_mime_data(bool* is_binary, tag_requiremen
     UsefulBufC result{nullptr, 0};
     bool is_tag257 = false;
     if (is_int_label_) {
-        QCBORDecode_GetMIMEMessageInMapN(dec_->raw_ctx(), int_label_, tag_req, &result, &is_tag257);
+        QCBORDecode_GetMIMEMessageInMapN(dec_->raw_ctx(), int_label_, static_cast<uint8_t>(tag_req), &result, &is_tag257);
     } else if (!str_label_.empty()) {
-        QCBORDecode_GetMIMEMessageInMapSZ(dec_->raw_ctx(), str_label_.c_str(), tag_req, &result, &is_tag257);
+        QCBORDecode_GetMIMEMessageInMapSZ(dec_->raw_ctx(), str_label_.c_str(), static_cast<uint8_t>(tag_req), &result, &is_tag257);
     } else {
-        QCBORDecode_GetMIMEMessage(dec_->raw_ctx(), tag_req, &result, &is_tag257);
+        QCBORDecode_GetMIMEMessage(dec_->raw_ctx(), static_cast<uint8_t>(tag_req), &result, &is_tag257);
     }
     dec_->check_err();
     if (is_binary) *is_binary = is_tag257;
     return {static_cast<const char*>(result.ptr), result.len};
 }
 
-inline const_byte_span item_proxy::as_uuid(uint8_t tag_req) const {
+inline const_byte_span item_proxy::as_uuid(tag_requirement tag_req) const {
     if (has_cached_) {
         (void)tag_req;
         return cached_.value.bytes;
     }
     UsefulBufC result{nullptr, 0};
     if (is_int_label_) {
-        QCBORDecode_GetBinaryUUIDInMapN(dec_->raw_ctx(), int_label_, tag_req, &result);
+        QCBORDecode_GetBinaryUUIDInMapN(dec_->raw_ctx(), int_label_, static_cast<uint8_t>(tag_req), &result);
     } else if (!str_label_.empty()) {
-        QCBORDecode_GetBinaryUUIDInMapSZ(dec_->raw_ctx(), str_label_.c_str(), tag_req, &result);
+        QCBORDecode_GetBinaryUUIDInMapSZ(dec_->raw_ctx(), str_label_.c_str(), static_cast<uint8_t>(tag_req), &result);
     } else {
-        QCBORDecode_GetBinaryUUID(dec_->raw_ctx(), tag_req, &result);
+        QCBORDecode_GetBinaryUUID(dec_->raw_ctx(), static_cast<uint8_t>(tag_req), &result);
     }
     dec_->check_err();
     return {static_cast<const uint8_t*>(result.ptr), result.len};
