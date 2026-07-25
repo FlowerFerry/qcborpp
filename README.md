@@ -427,8 +427,8 @@ auto v = int64_t{m["key1"]};               // scans on first access
 
 ### Safe Decode: get_or, contains, size, for_each
 
-Convenience methods inspired by `nlohmann/json` that eliminate try/catch boilerplate and
-make decode code safer and more readable.
+Convenience methods that eliminate try/catch boilerplate and make decode code safer
+and more readable.
 
 **get_or — safe access with default fallback:**
 
