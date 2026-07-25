@@ -32,6 +32,8 @@
 
 namespace qcborpp {
 
+template<typename Enc> class basic_map_builder;
+
 // ............................................................................
 // cbor_ref -- lightweight value wrapper for initializer-list encoding
 // ............................................................................
@@ -40,6 +42,7 @@ class cbor_ref {
     // encoder constructors need to inspect kind_ and list internals
     friend class encoder;
     friend class dynamic_encoder;
+    template<typename Enc> friend class basic_map_builder;
 
     // factory functions need to write kind_
     friend cbor_ref arr(std::initializer_list<cbor_ref>);

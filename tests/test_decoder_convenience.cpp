@@ -180,38 +180,99 @@ TEST_CASE("convenience: combined usage", "[convenience]") {
     CHECK(m.size() == 5);
 }
 
-// ===== value_or — syntactic sugar on map_scope =====
+// ===== get_or — syntactic sugar on map_scope =====
 
-TEST_CASE("convenience: value_or — string key, existing", "[convenience]") {
+TEST_CASE("convenience: get_or(map) — string key, existing", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
     auto m = dec.map();
 
-    CHECK(m.value_or("count", 0) == 42);
-    CHECK(m.value_or("name", std::string_view{"fallback"}) == "Niels");
-    CHECK(m.value_or("active", false) == true);
+    CHECK(m.get_or("count", 0) == 42);
+    CHECK(m.get_or("name", std::string_view{"fallback"}) == "Niels");
+    CHECK(m.get_or("active", false) == true);
 }
 
-TEST_CASE("convenience: value_or — string key, missing returns default", "[convenience]") {
+TEST_CASE("convenience: get_or(map) — string key, missing returns default", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
     auto m = dec.map();
 
-    CHECK(m.value_or("ghost", -1) == -1);
-    CHECK(m.value_or("nope", std::string_view{"default"}) == "default");
-    CHECK(m.value_or("no_double", 3.14) == 3.14);
+    CHECK(m.get_or("ghost", -1) == -1);
+    CHECK(m.get_or("nope", std::string_view{"default"}) == "default");
+    CHECK(m.get_or("no_double", 3.14) == 3.14);
 }
 
-TEST_CASE("convenience: value_or — int literal deduces correctly", "[convenience]") {
+TEST_CASE("convenience: get_or(map) — int literal deduces correctly", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
     auto m = dec.map();
 
     // 0 is int, maps to int64_t via get_or(int)
-    CHECK(m.value_or("count", 0) == 42);
+    CHECK(m.get_or("count", 0) == 42);
     // missing → default int
-    CHECK(m.value_or("missing", 99) == 99);
+    CHECK(m.get_or("missing", 99) == 99);
+}
+
+// ===== try_get — std::optional access =====
+
+TEST_CASE("convenience: try_get — existing key returns value", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    auto opt1 = m["count"].try_get<int64_t>();
+    CHECK(opt1.has_value());
+    CHECK(*opt1 == 42);
+
+    auto opt2 = m["name"].try_get<std::string_view>();
+    CHECK(opt2.has_value());
+    CHECK(*opt2 == "Niels");
+
+    auto opt3 = m["active"].try_get<bool>();
+    CHECK(opt3.has_value());
+    CHECK(*opt3 == true);
+}
+
+TEST_CASE("convenience: try_get — missing key returns nullopt", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    auto opt = m["nonexistent"].try_get<int64_t>();
+    CHECK_FALSE(opt.has_value());
+}
+
+TEST_CASE("convenience: try_get — type mismatch returns nullopt", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    // "name" is a string, not int64_t
+    auto opt = m["name"].try_get<int64_t>();
+    CHECK_FALSE(opt.has_value());
+}
+
+// ===== empty — map_scope emptiness check =====
+
+TEST_CASE("convenience: empty — non-empty map returns false", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));  // count, name, active, version, comment
+    decoder dec(data);
+    auto m = dec.map();
+    CHECK_FALSE(m.empty());
+}
+
+TEST_CASE("convenience: empty — truly empty map returns true", "[convenience]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    { auto m = enc.map(); /* no entries */ }
+    decoder dec(enc.finish());
+    auto m = dec.map();
+    CHECK(m.empty());
 }

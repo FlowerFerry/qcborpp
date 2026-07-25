@@ -260,6 +260,23 @@ public:
     basic_key_proxy<Enc> operator[](int key) { return (*this)[static_cast<int64_t>(key)]; }
     /** @brief  Add or access a map entry by null-terminated string label. */
     basic_key_proxy<Enc> operator[](const char* key);
+
+    /** @brief  Merge key-value pairs from an initializer_list into this map.
+     *
+     * Appends entries without opening/closing the map. Typical use:
+     * enc.map().merge({{"key1", 1}, {"key2", "hello"}});
+     *
+     * Each entry must be a cbor_ref pair. Map remains open after merge.
+     */
+    void merge(std::initializer_list<cbor_ref> items);
+
+    /** @brief  Merge a single key-value pair. Sugar: m.merge("key", 42). */
+    basic_map_builder& merge(std::string_view key, int v) { return merge(key, static_cast<int64_t>(v)); }
+    basic_map_builder& merge(std::string_view key, int64_t v);
+    basic_map_builder& merge(std::string_view key, std::string_view v);
+    basic_map_builder& merge(std::string_view key, double v);
+    basic_map_builder& merge(std::string_view key, bool v);
+    basic_map_builder& merge(std::string_view key, std::nullptr_t);
 };
 
 // ============================================================================
@@ -902,6 +919,69 @@ inline basic_key_proxy<Enc> basic_map_builder<Enc>::operator[](int64_t key) {
 template<typename Enc>
 inline basic_key_proxy<Enc> basic_map_builder<Enc>::operator[](const char* key) {
     return (*this)[std::string_view(key)];
+}
+
+// ── merge ──
+
+template<typename Enc>
+inline void basic_map_builder<Enc>::merge(std::initializer_list<cbor_ref> items) {
+    for (auto& ref : items) {
+        if (ref.list_count() < 2) continue;       // not a pair
+        auto& k = ref.list_data()[0];
+        auto& v = ref.list_data()[1];
+        if (k.kind_ != cbor_ref::kind::string_v) continue;
+        auto key_proxy = (*this)[std::string_view{k.str_ptr_, k.str_len_}];
+        // Dispatch value by type
+        switch (v.kind_) {
+            case cbor_ref::kind::int64_v:   key_proxy = v.i64_; break;
+            case cbor_ref::kind::double_v:  key_proxy = v.d_;   break;
+            case cbor_ref::kind::string_v:  key_proxy = std::string_view{v.str_ptr_, v.str_len_}; break;
+            case cbor_ref::kind::bool_v:    key_proxy = v.b_;   break;
+            case cbor_ref::kind::null_v:    key_proxy = nullptr; break;
+            case cbor_ref::kind::map_v:     {
+                auto nested = key_proxy.map();
+                nested.merge({v.list_data(), v.list_data() + v.list_count()});
+                break;
+            }
+            case cbor_ref::kind::array_v:   {
+                auto nested = key_proxy.array();
+                for (size_t i = 0; i < v.list_count(); ++i) {
+                    auto& elem = v.list_data()[i];
+                    switch (elem.kind_) {
+                        case cbor_ref::kind::int64_v:   nested.add(elem.i64_); break;
+                        case cbor_ref::kind::double_v:  nested.add(elem.d_);   break;
+                        case cbor_ref::kind::string_v:  nested.add(std::string_view{elem.str_ptr_, elem.str_len_}); break;
+                        case cbor_ref::kind::bool_v:    nested.add(elem.b_);   break;
+                        case cbor_ref::kind::null_v:    nested.add(nullptr);   break;
+                        default: break;
+                    }
+                }
+                break;
+            }
+            default: break;
+        }
+    }
+}
+
+template<typename Enc>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key, int64_t v) {
+    (*this)[key] = v; return *this;
+}
+template<typename Enc>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key, std::string_view v) {
+    (*this)[key] = v; return *this;
+}
+template<typename Enc>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key, double v) {
+    (*this)[key] = v; return *this;
+}
+template<typename Enc>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key, bool v) {
+    (*this)[key] = v; return *this;
+}
+template<typename Enc>
+inline basic_map_builder<Enc>& basic_map_builder<Enc>::merge(std::string_view key, std::nullptr_t) {
+    (*this)[key] = nullptr; return *this;
 }
 
 // ============================================================================

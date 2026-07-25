@@ -372,6 +372,36 @@ auto v = int64_t{m["answer"]["everything"]};  // 42
 > }
 > ```
 
+### map_builder::merge — append pairs to an existing map
+
+After `enc.map()`, use `merge()` to add entries without `m[key]=value` assignment.
+
+**Single key-value merge (chaining returns *this):**
+
+```cpp
+auto m = enc.map();
+m["base"] = "static_value";
+m.merge("count", 42)
+ .merge("name", std::string_view{"Niels"})
+ .merge("active", true);        // map stays open after merge
+```
+
+**Initializer-list merge:**
+
+```cpp
+auto m = enc.map();
+m.merge({{"a", 1}, {"b", "hello"}, {"c", 3.14}});
+```
+
+**Works with dynamic_encoder too:**
+
+```cpp
+dynamic_encoder enc;
+auto m = enc.map();
+m.merge("version", 1.5);
+m.merge("flag", nullptr);
+```
+
 ### Decode Performance — pick your strategy
 
 ```cpp
@@ -412,15 +442,31 @@ double ratio = m["ratio"].get_or(0.5);
 int64_t count = m["count"].get_or(0);            // 0 deduces to int → int64_t
 ```
 
-**value_or — even shorter: key+default on the map itself:**
+**get_or — key+default on the map itself:**
 
 ```cpp
 auto m = dec.map();
-int64_t port  = m.value_or("port", 8080);        // one call, no operator[]
-auto name     = m.value_or("name", std::string_view{"anonymous"});
-bool debug    = m.value_or("debug", false);
+int64_t port  = m.get_or("port", 8080);        // one call, no operator[]
+auto name     = m.get_or("name", std::string_view{"anonymous"});
+bool debug    = m.get_or("debug", false);
 // Also supports int64_t key:
-int64_t val   = m.value_or(42, -1);
+int64_t val   = m.get_or(42, -1);
+```
+
+**try_get — std::optional access (C++17):**
+
+```cpp
+auto m = dec.map();
+
+// Clean separation: nullopt means "absent", 0 means "explicitly zero"
+auto count = m["count"].try_get<int64_t>();  // std::optional<int64_t>
+if (count) { use_count(*count); }
+
+auto opt = m["optional_key"].try_get<std::string_view>();
+if (opt) { /* key exists and is a string */ }
+
+// Works with any supported type and returns nullopt on type mismatch
+auto bad = m["name"].try_get<int64_t>();     // "Niels" is string → nullopt
 ```
 
 **contains — key existence check without consuming the cursor:**
@@ -439,6 +485,13 @@ if (m.contains("optional_field")) {
 auto m = dec.map();
 size_t n = m.size();                               // key-value pair count from CBOR header
 // array_scope::size() also available for arrays
+```
+
+**empty — check if map has no entries:**
+
+```cpp
+auto m = dec.map();
+if (m.empty()) { /* nothing to do */ }
 ```
 
 **for_each — iterate all entries in one pass:**

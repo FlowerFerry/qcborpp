@@ -371,6 +371,36 @@ auto v = int64_t{m["answer"]["everything"]};  // 42
 > }
 > ```
 
+### map_builder::merge — 向已打开的 map 追加键值对
+
+在 `enc.map()` 之后调用 `merge()` 添加条目，无需 `m[key]=value` 赋值。
+
+**单个键值 merge（链式调用，返回 *this）：**
+
+```cpp
+auto m = enc.map();
+m["base"] = "static_value";
+m.merge("count", 42)
+ .merge("name", std::string_view{"Niels"})
+ .merge("active", true);        // merge 后 map 保持打开
+```
+
+**初始化列表 merge：**
+
+```cpp
+auto m = enc.map();
+m.merge({{"a", 1}, {"b", "hello"}, {"c", 3.14}});
+```
+
+**dynamic_encoder 同样适用：**
+
+```cpp
+dynamic_encoder enc;
+auto m = enc.map();
+m.merge("version", 1.5);
+m.merge("flag", nullptr);
+```
+
 ### 解码性能 — 选择合适的策略
 
 ```cpp
@@ -410,15 +440,31 @@ double ratio = m["ratio"].get_or(0.5);
 int64_t count = m["count"].get_or(0);            // 0 推断为 int → int64_t
 ```
 
-**value_or — 更简洁：直接在 map 上指定 key + 默认值：**
+**get_or — 直接在 map 上指定 key + 默认值：**
 
 ```cpp
 auto m = dec.map();
-int64_t port  = m.value_or("port", 8080);        // 一次调用，无需 operator[]
-auto name     = m.value_or("name", std::string_view{"匿名"});
-bool debug    = m.value_or("debug", false);
+int64_t port  = m.get_or("port", 8080);        // 一次调用，无需 operator[]
+auto name     = m.get_or("name", std::string_view{"匿名"});
+bool debug    = m.get_or("debug", false);
 // 也支持 int64_t 键：
-int64_t val   = m.value_or(42, -1);
+int64_t val   = m.get_or(42, -1);
+```
+
+**try_get — std::optional 访问（C++17）：**
+
+```cpp
+auto m = dec.map();
+
+// 清晰区分：nullopt 表示"不存在"，0 表示"明确为零"
+auto count = m["count"].try_get<int64_t>();  // std::optional<int64_t>
+if (count) { use_count(*count); }
+
+auto opt = m["optional_key"].try_get<std::string_view>();
+if (opt) { /* key 存在且为字符串 */ }
+
+// 类型不匹配时返回 nullopt
+auto bad = m["name"].try_get<int64_t>();     // "Niels" 是字符串 → nullopt
 ```
 
 **contains — 检查 key 是否存在而不消耗解码器游标：**

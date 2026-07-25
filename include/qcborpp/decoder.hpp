@@ -18,6 +18,7 @@
 #include <string>
 #include <unordered_map>
 #include <chrono>
+#include <optional>
 
 namespace qcborpp {
 
@@ -350,7 +351,7 @@ public:
     /**
      * @brief  Look up key and return its value, or a default if not found.
      *
-     * Syntax sugar: m.value_or("port", 8080) instead of m["port"].get_or(8080).
+     * Syntax sugar: m.get_or("port", 8080) instead of m["port"].get_or(8080).
      * For string keys, auto-prefetches if needed, then returns the cached
      * value if the key exists, otherwise returns the provided default.
      *
@@ -360,7 +361,7 @@ public:
      * @return The value associated with key, or def.
      */
     template<typename T>
-    T value_or(std::string_view key, T def) const {
+    T get_or(std::string_view key, T def) const {
         auto& self = const_cast<map_scope&>(*this);
         return self[key].get_or(std::move(def));
     }
@@ -369,7 +370,7 @@ public:
      * @brief  Look up integer key and return its value, or a default.
      */
     template<typename T>
-    T value_or(int64_t key, T def) const {
+    T get_or(int64_t key, T def) const {
         auto& self = const_cast<map_scope&>(*this);
         return self[key].get_or(std::move(def));
     }
@@ -405,6 +406,9 @@ public:
      * @return The number of entries.
      */
     size_t size();
+
+    /** @brief Returns true if the map has no entries. */
+    bool empty() { return size() == 0; }
 
     /**
      * @brief  Iterate all key-value pairs in this map via a callback.
@@ -543,6 +547,22 @@ public:
 
     /** @brief Convenience overload for int literals — forwards to int64_t. */
     int64_t get_or(int default_val) const noexcept { return get_or(static_cast<int64_t>(default_val)); }
+
+    // ── try_get — std::optional access ──
+
+    /**
+     * @brief  Try to extract the value as T. Returns std::nullopt if the
+     *         key was not found or the type does not match.
+     *
+     * Uses get_or semantics: catches error thrown when key is absent or
+     * type is wrong. Distinct from get_or() because std::nullopt cleanly
+     * separates "no value" from a legitimate default (e.g. zero).
+     */
+    template<typename T>
+    std::optional<T> try_get() const noexcept {
+        try { return std::optional<T>(operator T()); }
+        catch (...) { return std::nullopt; }
+    }
 
     // ── explicit getters ──
 

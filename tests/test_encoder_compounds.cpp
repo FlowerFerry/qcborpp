@@ -286,3 +286,38 @@ TEST_CASE("dynamic_encoder: bytes in map", "[dynamic_encoder][compounds]") {
     REQUIRE(b[3] == 0xEF);
     dec.finish();
 }
+
+// ===== merge — map_builder runtime merge =====
+
+TEST_CASE("encoder: merge single key-value pair (chaining)", "[encoder][merge]") {
+    uint8_t buf[256];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["base"] = "original";
+        m.merge("count", 42).merge("name", std::string_view{"Niels"}).merge("active", true);
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    CHECK(std::string_view{m["base"]} == "original");
+    CHECK(m["count"].get_or(0) == 42);
+    CHECK(std::string_view{m["name"]} == "Niels");
+    CHECK(m["active"].get_or(false) == true);
+}
+
+TEST_CASE("encoder: merge dynamic_encoder", "[dynamic_encoder][merge]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m.merge("version", 1.0);
+        m.merge("flag", false);
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    CHECK(std::abs(m["version"].get_or(0.0) - 1.0) < 0.001);
+    CHECK(m["flag"].get_or(true) == false);
+}
