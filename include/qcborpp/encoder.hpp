@@ -1077,6 +1077,8 @@ template<typename Enc>
 inline basic_array_builder<Enc>& basic_array_builder<Enc>::operator<<(bool v)             { return add(v); }
 template<typename Enc>
 inline basic_array_builder<Enc>& basic_array_builder<Enc>::operator<<(std::nullptr_t v)   { return add(v); }
+template<typename Enc>
+inline basic_array_builder<Enc>& basic_array_builder<Enc>::operator<<(const_byte_span v)  { return add(v); }
 
 template<typename Enc>
 inline basic_map_builder<Enc> basic_array_builder<Enc>::add_map() {

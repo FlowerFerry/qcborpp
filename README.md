@@ -488,6 +488,12 @@ if (m.contains("optional_field")) {
     auto val = m["optional_field"];               // safe to access after check
 }
 // contains() auto-prefetches; subsequent operator[] is O(1) from cache
+
+// Integer-keyed maps also supported:
+auto m2 = dec2.map();
+if (m2.contains(42)) {
+    auto val = std::string_view{m2[42]};           // safe access by integer key
+}
 ```
 
 **size — map entry count:**
@@ -754,6 +760,13 @@ decoder dec(const_byte_span data);
 | `operator[](int64_t)` | Look up by integer label |
 | `operator[](const char*)` | Look up by C-string label |
 | `get_items(specs, out)` | Batch-decode using QCBOR native `GetItemsInMap`. Single traversal for all keys. |
+| `contains(std::string_view)` | Auto-prefetches; check if a string-key exists |
+| `contains(int64_t)` | Auto-prefetches; check if an int-key exists |
+| `size()` | Entry count (auto-prefetches) |
+| `empty()` | True if size == 0 (auto-prefetches) |
+| `for_each(f)` | Iterate (key, item_proxy) pairs (auto-prefetches) |
+| `get_or(key, def)` | Lookup with fallback; returns decoded_item |
+| `try_get<T>(key)` | Lookup returning `std::optional<T>` |
 
 #### `item_proxy` — returned by `m["key"]`
 | Method | Description |
