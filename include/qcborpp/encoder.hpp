@@ -737,9 +737,10 @@ public:
 
     // ── encoded insertion ──
 
-    /** @brief  Insert pre-encoded CBOR bytes verbatim. */
+    /** @brief  Insert pre-encoded CBOR bytes verbatim (QCBOREncode_AddEncoded). */
     encoder& add_encoded(const_byte_span encoded) {
-        return add_bytes(encoded);
+        QCBOREncode_AddEncoded(&ctx_, {const_cast<uint8_t*>(encoded.data()), encoded.size()});
+        return *this;
     }
 };
 

@@ -655,9 +655,8 @@ TEST_CASE("static_encoder: add_encoded", "[static_encoder]") {
 
     decoder dec(outer_data);
     auto a = dec.array();
-    // add_encoded inserts raw bytes — decodes as byte string
-    auto bs = a.next().as_bytes();
-    REQUIRE(bs.size() > 0);
+    // add_encoded inserts raw CBOR bytes — decoded as the embedded value
+    REQUIRE(int64_t(a.next()) == 99);
     dec.finish();
 }
 
