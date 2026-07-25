@@ -395,6 +395,7 @@ public:
     template<typename T>
     std::optional<T> try_get(int64_t key) const noexcept {
         auto& self = const_cast<map_scope&>(*this);
+        if (!self.prefetched_) self.prefetch();
         return self[key].try_get<T>();
     }
 

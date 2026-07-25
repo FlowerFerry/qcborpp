@@ -430,6 +430,14 @@ auto v = int64_t{m["key1"]};               // scans on first access
 Convenience methods that eliminate try/catch boilerplate and make decode code safer
 and more readable.
 
+> **Auto-prefetch behavior:** `contains()`, `size()`, `empty()`, and `for_each()`
+> implicitly call `prefetch()` on first use, caching all map entries for O(1)
+> subsequent lookups. `item_proxy::get_or()` and `item_proxy::try_get()` do **not**
+> auto-prefetch — call `m.prefetch()` explicitly before looping over many keys to
+> avoid repeated linear scans.
+> `map_scope::get_or(key, def)` and `map_scope::try_get(key)` also do **not**
+> auto-prefetch for the same reason.
+
 **get_or — safe access with default fallback:**
 
 ```cpp
