@@ -230,7 +230,7 @@ TEST_CASE("static_encoder: add_days_string roundtrip", "[static_encoder]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(a.next().as_days_string(0) == "2024-01-15");
+    REQUIRE(a.next().as_days_string() == "2024-01-15");
     dec.finish();
 }
 
@@ -258,7 +258,7 @@ TEST_CASE("static_encoder: add_b64url_text roundtrip", "[static_encoder]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(a.next().as_b64url(0) == "SGVsbG8");
+    REQUIRE(a.next().as_b64url() == "SGVsbG8");
     dec.finish();
 }
 

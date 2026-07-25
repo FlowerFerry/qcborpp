@@ -23,8 +23,8 @@ TEST_CASE("chrono: roundtrip time_point and days", "[chrono]") {
 
         auto tp2 = m["created"].as_time_point();
         auto d   = m["expires_d"].as_days_duration();
-        auto sec = m["created"].as_date_epoch(0);
-        auto days = m["expires_d"].as_days_epoch(0);
+        auto sec = m["created"].as_date_epoch();
+        auto days = m["expires_d"].as_days_epoch();
         auto plain = int64_t(m["plain"]);
 
         CHECK(sec == 1710000000);

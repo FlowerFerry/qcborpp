@@ -139,7 +139,7 @@ TEST_CASE("decoder: as_days_string", "[decoder][coverage]") {
 
     decoder dec(data);
     auto a = dec.array();
-    auto s = a.next().as_days_string(0);
+    auto s = a.next().as_days_string();
     REQUIRE(s == "2024-01-15");
     dec.finish();
 }
@@ -171,7 +171,7 @@ TEST_CASE("decoder: as_b64url", "[decoder][coverage]") {
 
     decoder dec(data);
     auto a = dec.array();
-    auto s = a.next().as_b64url(0);
+    auto s = a.next().as_b64url();
     REQUIRE(s == "SGVsbG8");
     dec.finish();
 }

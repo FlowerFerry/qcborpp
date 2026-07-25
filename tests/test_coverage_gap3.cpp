@@ -102,6 +102,28 @@ TEST_CASE("auto: operator<< unsigned int", "[dynamic_encoder][coverage3]") {
 }
 
 // ============================================================================
+// auto: operator<<(const_byte_span)
+// ============================================================================
+
+TEST_CASE("auto: operator<< const_byte_span", "[dynamic_encoder][coverage3]") {
+    dynamic_encoder enc;
+    uint8_t raw[] = {0x00, 0xFF, 0xAB};
+    {
+        auto a = enc.array();
+        a << const_byte_span{raw, sizeof(raw)};
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto a = dec.array();
+    auto bs = a.next().as_bytes();
+    REQUIRE(bs.size() == 3);
+    REQUIRE(bs[0] == 0x00);
+    REQUIRE(bs[1] == 0xFF);
+    REQUIRE(bs[2] == 0xAB);
+    dec.finish();
+}
+
+// ============================================================================
 // auto: add_map()
 // ============================================================================
 

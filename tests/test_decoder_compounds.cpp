@@ -173,7 +173,7 @@ TEST_CASE("decoder: tagged getters via item_proxy", "[decoder][compounds]") {
 
     decoder dec(data);
     auto a = dec.array();
-    auto uri = a.next().as_uri(2);  // optional tag
+    auto uri = a.next().as_uri(tag_requirement::optional_tag);  // optional tag
     REQUIRE(uri == "https://example.org");
     dec.finish();
 }
@@ -189,7 +189,7 @@ TEST_CASE("decoder: as_uuid", "[decoder][compounds]") {
     decoder dec(data);
     auto a = dec.array();
     // as_uuid with optional tag requirement
-    auto result = a.next().as_uuid(2);
+    auto result = a.next().as_uuid(tag_requirement::optional_tag);
     REQUIRE(result.size() == 16);
     REQUIRE(result[0] == 0);
     REQUIRE(result[15] == 15);

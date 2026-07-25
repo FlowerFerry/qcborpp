@@ -96,6 +96,59 @@ TEST_CASE("convenience: contains — does not consume cursor", "[convenience]") 
     CHECK(std::string_view{m["name"]} == "Niels");
 }
 
+// ── contains(int64_t) for integer-keyed maps ──
+
+TEST_CASE("convenience: contains(int64_t) — existing key", "[convenience]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m[0]  = "zero";
+        m[42] = "answer";
+        m[99] = "ninety-nine";
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+
+    CHECK(m.contains(0));
+    CHECK(m.contains(42));
+    CHECK(m.contains(99));
+}
+
+TEST_CASE("convenience: contains(int64_t) — missing key", "[convenience]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m[1] = "one";
+        m[2] = "two";
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+
+    CHECK_FALSE(m.contains(0));
+    CHECK_FALSE(m.contains(999));
+    CHECK_FALSE(m.contains(-1));
+}
+
+TEST_CASE("convenience: contains(int64_t) — mixed int/string keys", "[convenience]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["name"] = "Niels";
+        m[42]     = "answer";
+    }
+    auto data = enc.finish();
+    decoder dec(data);
+    auto m = dec.map();
+
+    // string-keyed contains still works
+    CHECK(m.contains("name"));
+    // int-keyed contains works alongside string keys
+    CHECK(m.contains(42));
+    CHECK_FALSE(m.contains(43));
+}
+
 // ===== size =====
 
 TEST_CASE("convenience: size — flat map", "[convenience]") {
