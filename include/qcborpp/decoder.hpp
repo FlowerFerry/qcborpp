@@ -916,6 +916,44 @@ public:
      */
     const_byte_span  as_uuid(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
+    // ── bignum / decimal fraction / bigfloat ──
+
+    /**
+     * @brief  Extract bignum bytes (tag 2 or 3).
+     *
+     * Returns the raw big-endian unsigned magnitude. The sign is determined
+     * by type(): pos_bignum or neg_bignum.
+     *
+     * @return Raw bignum bytes (zero-copy, points into encoded data).
+     * @throws error on type mismatch.
+     */
+    const_byte_span as_bignum() const;
+
+    /**
+     * @brief  Extract a decimal fraction (tag 4).
+     *
+     * The mantissa must fit in int64_t. For bignum mantissa, use
+     * as_decimal_fraction() with tag_requirement::optional_tag and check
+     * is_bignum() on the result, or catch the error.
+     *
+     * @param tag_req  Tag requirement.
+     * @return exp_and_mantissa with exponent and integer mantissa.
+     * @throws error if mantissa is a bignum that overflows int64_t.
+     */
+    exp_and_mantissa as_decimal_fraction(tag_requirement tag_req = tag_requirement::must_be_tag) const;
+
+    /**
+     * @brief  Extract a bigfloat (tag 5).
+     *
+     * The mantissa must fit in int64_t. For bignum mantissa, see
+     * as_decimal_fraction() note.
+     *
+     * @param tag_req  Tag requirement.
+     * @return exp_and_mantissa with exponent (base-2) and integer mantissa.
+     * @throws error if mantissa is a bignum that overflows int64_t.
+     */
+    exp_and_mantissa as_bigfloat(tag_requirement tag_req = tag_requirement::must_be_tag) const;
+
     // ── nested key access ──
 
     /**
