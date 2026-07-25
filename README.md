@@ -467,6 +467,10 @@ if (opt) { /* key exists and is a string */ }
 
 // Works with any supported type and returns nullopt on type mismatch
 auto bad = m["name"].try_get<int64_t>();     // "Niels" is string → nullopt
+
+// Also works directly on map_scope for one less bracket:
+auto count = m.try_get<int64_t>("count");     // same as m["count"].try_get<int64_t>()
+auto ghost = m.try_get<std::string_view>("ghost"); // nullopt
 ```
 
 **contains — key existence check without consuming the cursor:**

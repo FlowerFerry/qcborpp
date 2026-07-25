@@ -375,6 +375,29 @@ public:
         return self[key].get_or(std::move(def));
     }
 
+    // ── try_get — std::optional access directly on map_scope ──
+
+    /**
+     * @brief  Look up a string key and return std::optional<T>.
+     *
+     * Syntax sugar: m.try_get<int64_t>("count") instead of m["count"].try_get<int64_t>().
+     * Returns std::nullopt if the key is absent or the type does not match.
+     */
+    template<typename T>
+    std::optional<T> try_get(std::string_view key) const noexcept {
+        auto& self = const_cast<map_scope&>(*this);
+        return self[key].try_get<T>();
+    }
+
+    /**
+     * @brief  Look up an integer key and return std::optional<T>.
+     */
+    template<typename T>
+    std::optional<T> try_get(int64_t key) const noexcept {
+        auto& self = const_cast<map_scope&>(*this);
+        return self[key].try_get<T>();
+    }
+
     /**
      * @brief  Check whether a key exists in this map.
      *

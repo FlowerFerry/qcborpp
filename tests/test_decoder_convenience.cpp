@@ -258,6 +258,40 @@ TEST_CASE("convenience: try_get — type mismatch returns nullopt", "[convenienc
     CHECK_FALSE(opt.has_value());
 }
 
+// ===== try_get on map_scope — direct map-level optional access =====
+
+TEST_CASE("convenience: try_get(map) — existing key returns value", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    auto v = m.try_get<int64_t>("count");
+    REQUIRE(v.has_value());
+    CHECK(*v == 42);
+}
+
+TEST_CASE("convenience: try_get(map) — missing key returns nullopt", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    auto v = m.try_get<int64_t>("ghost");
+    CHECK_FALSE(v.has_value());
+}
+
+TEST_CASE("convenience: try_get(map) — type mismatch returns nullopt", "[convenience]") {
+    uint8_t buf[256];
+    auto data = encode_map(buf, sizeof(buf));
+    decoder dec(data);
+    auto m = dec.map();
+
+    // "name" is a string, not int64_t
+    auto v = m.try_get<int64_t>("name");
+    CHECK_FALSE(v.has_value());
+}
+
 // ===== empty — map_scope emptiness check =====
 
 TEST_CASE("convenience: empty — non-empty map returns false", "[convenience]") {
