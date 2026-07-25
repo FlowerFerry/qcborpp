@@ -123,7 +123,7 @@ TEST_CASE("decoder: as_date_string", "[decoder][coverage]") {
 
     decoder dec(data);
     auto a = dec.array();
-    auto s = a.next().as_date_string(0);
+    auto s = a.next().as_date_string();
     REQUIRE(s == "2024-01-15T10:30:00Z");
     dec.finish();
 }
@@ -155,7 +155,7 @@ TEST_CASE("decoder: as_b64", "[decoder][coverage]") {
 
     decoder dec(data);
     auto a = dec.array();
-    auto s = a.next().as_b64(0);
+    auto s = a.next().as_b64_text();
     REQUIRE(s == "SGVsbG8=");
     dec.finish();
 }
@@ -187,7 +187,7 @@ TEST_CASE("decoder: as_regex", "[decoder][coverage]") {
 
     decoder dec(data);
     auto a = dec.array();
-    auto s = a.next().as_regex(0);
+    auto s = a.next().as_regex();
     REQUIRE(s == "[a-z]+");
     dec.finish();
 }
@@ -204,7 +204,7 @@ TEST_CASE("decoder: as_mime text", "[decoder][coverage]") {
     decoder dec(data);
     auto a = dec.array();
     bool is_bin = false;
-    auto s = a.next().as_mime(&is_bin, 0);
+    auto s = a.next().as_mime_data(&is_bin);
     REQUIRE(s == "text/plain; charset=utf-8");
     REQUIRE(!is_bin);
     dec.finish();

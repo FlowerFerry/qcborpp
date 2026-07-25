@@ -216,7 +216,7 @@ TEST_CASE("static_encoder: add_date_string roundtrip", "[static_encoder]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(a.next().as_date_string(0) == "2024-01-15T10:30:00Z");
+    REQUIRE(a.next().as_date_string() == "2024-01-15T10:30:00Z");
     dec.finish();
 }
 
@@ -244,7 +244,7 @@ TEST_CASE("static_encoder: add_b64_text roundtrip", "[static_encoder]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(a.next().as_b64(0) == "SGVsbG8=");
+    REQUIRE(a.next().as_b64_text() == "SGVsbG8=");
     dec.finish();
 }
 
@@ -272,7 +272,7 @@ TEST_CASE("static_encoder: add_regex roundtrip", "[static_encoder]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(a.next().as_regex(0) == "[a-z]+");
+    REQUIRE(a.next().as_regex() == "[a-z]+");
     dec.finish();
 }
 
@@ -287,7 +287,7 @@ TEST_CASE("static_encoder: add_mime_data roundtrip", "[static_encoder]") {
     decoder dec(data);
     auto a = dec.array();
     bool is_bin = false;
-    REQUIRE(a.next().as_mime(&is_bin, 0) == "text/plain");
+    REQUIRE(a.next().as_mime_data(&is_bin) == "text/plain");
     dec.finish();
 }
 
@@ -301,7 +301,7 @@ TEST_CASE("static_encoder: add_uri roundtrip", "[static_encoder]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE(a.next().as_uri(0) == "https://example.com");
+    REQUIRE(a.next().as_uri() == "https://example.com");
     dec.finish();
 }
 

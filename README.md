@@ -208,7 +208,7 @@ enc.add_mime_data("{\"key\": 1}");
 
 // ── decode ──
 std::string_view uri = m["homepage"].as_uri();    // requires tag 32
-std::string_view b64 = m["payload"].as_b64();     // requires tag 34
+std::string_view b64 = m["payload"].as_b64_text();
 const_byte_span uuid  = m["id"].as_uuid();        // requires tag 37
 ```
 
@@ -599,7 +599,6 @@ basic_array_builder<encoder> enc.array();     // start encoding as CBOR array
 bool enc.is_map()   const noexcept;
 bool enc.is_array() const noexcept;
 const_byte_span enc.finish();                 // complete encoding, return slice of buffer
-const_byte_span enc.data()   const noexcept;  // peek at current output (before finish())
 
 // ── low-level direct-add ──
 encoder& enc.add_int64(int64_t v);
@@ -774,8 +773,8 @@ decoder dec(const_byte_span data);
 | `as_date_epoch()` / `as_days_epoch()` | Tagged epoch getters (int64_t) |
 | `as_time_point()` | Extract as `std::chrono::system_clock::time_point` (tag 1) |
 | `as_days_duration()` | Extract as `std::chrono::duration<int64_t, std::ratio<86400>>` (tag 100) |
-| `as_uri()` / `as_b64()` / `as_b64url()` | Tagged tag getters |
-| `as_regex()` / `as_mime()` / `as_uuid()` | Tagged tag getters |
+| `as_uri()` / `as_b64_text()` / `as_b64url()` | Tagged tag getters |
+| `as_regex()` / `as_mime_data()` / `as_uuid()` | Tagged tag getters |
 | `as_bignum()` | Bignum getter |
 | `as_decimal_fraction()` / `as_bigfloat()` | Arithmetic type getters |
 | `type()` | Query CBOR type without consuming |

@@ -325,6 +325,7 @@ public:
     basic_array_builder& operator<<(double v);
     basic_array_builder& operator<<(bool v);
     basic_array_builder& operator<<(std::nullptr_t v);
+    basic_array_builder& operator<<(const_byte_span v);
 
     /** @brief  Append a nested CBOR map to the array. */
     basic_map_builder<Enc> add_map();

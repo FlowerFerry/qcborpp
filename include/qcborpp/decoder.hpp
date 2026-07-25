@@ -299,6 +299,8 @@ class map_scope {
     std::string last_label_;
     /** Prefetch cache: label -> decoded_item, populated by prefetch(). */
     std::unordered_map<std::string, decoded_item> cache_;
+    /** Prefetch cache: integer label -> decoded_item, populated by prefetch(). */
+    std::vector<std::pair<int64_t, decoded_item>> int_cache_;
     bool prefetched_ = false;
 
     explicit map_scope(decoder& d) noexcept : dec_(&d) {}
@@ -801,7 +803,7 @@ public:
      * @return The date string.
      * @throws error on type/tag mismatch.
      */
-    std::string_view as_date_string(uint8_t tag_req = 0) const;
+    std::string_view as_date_string(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as a days-count string (tag 1004).
@@ -809,7 +811,7 @@ public:
      * @return The days string.
      * @throws error on type/tag mismatch.
      */
-    std::string_view as_days_string(uint8_t tag_req = 0) const;
+    std::string_view as_days_string(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     // ── epoch date getters ──
 
@@ -819,7 +821,7 @@ public:
      * @return Seconds since epoch as int64_t.
      * @throws error on type/tag mismatch.
      */
-    int64_t as_date_epoch(uint8_t tag_req = 0) const;
+    int64_t as_date_epoch(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as a std::chrono::system_clock::time_point (tag 1).
@@ -828,7 +830,7 @@ public:
      * @return time_point constructed from epoch seconds.
      * @throws error on type/tag mismatch.
      */
-    std::chrono::system_clock::time_point as_time_point(uint8_t tag_req = 0) const;
+    std::chrono::system_clock::time_point as_time_point(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as epoch days (tag 100).
@@ -836,7 +838,7 @@ public:
      * @return Days since epoch as int64_t.
      * @throws error on type/tag mismatch.
      */
-    int64_t as_days_epoch(uint8_t tag_req = 0) const;
+    int64_t as_days_epoch(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as a std::chrono::days-equivalent duration (tag 100).
@@ -848,7 +850,7 @@ public:
      * @return Duration representing days since epoch.
      * @throws error on type/tag mismatch.
      */
-    std::chrono::duration<int64_t, std::ratio<86400>> as_days_duration(uint8_t tag_req = 0) const;
+    std::chrono::duration<int64_t, std::ratio<86400>> as_days_duration(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as a URI (tag 32).
@@ -856,7 +858,7 @@ public:
      * @return The URI string.
      * @throws error on type/tag mismatch.
      */
-    std::string_view as_uri(uint8_t tag_req = 0) const;
+    std::string_view as_uri(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as a base64-encoded string (tag 34).
@@ -864,7 +866,7 @@ public:
      * @return The base64 string.
      * @throws error on type/tag mismatch.
      */
-    std::string_view as_b64(uint8_t tag_req = 0) const;
+    std::string_view as_b64_text(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as a base64url-encoded string (tag 33).
@@ -872,7 +874,7 @@ public:
      * @return The base64url string.
      * @throws error on type/tag mismatch.
      */
-    std::string_view as_b64url(uint8_t tag_req = 0) const;
+    std::string_view as_b64url(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as a regular expression pattern (tag 35).
@@ -880,7 +882,7 @@ public:
      * @return The regex string.
      * @throws error on type/tag mismatch.
      */
-    std::string_view as_regex(uint8_t tag_req = 0) const;
+    std::string_view as_regex(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as MIME-encoded content (tag 36 or 257).
@@ -891,7 +893,7 @@ public:
      * @return The MIME content string.
      * @throws error on type/tag mismatch.
      */
-    std::string_view as_mime(bool* is_binary = nullptr, uint8_t tag_req = 0) const;
+    std::string_view as_mime_data(bool* is_binary = nullptr, tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     /**
      * @brief  Extract as a binary UUID (tag 37).
@@ -902,7 +904,7 @@ public:
      * @return The 16-byte UUID.
      * @throws error on type/tag mismatch.
      */
-    const_byte_span  as_uuid(uint8_t tag_req = 0) const;
+    const_byte_span  as_uuid(tag_requirement tag_req = tag_requirement::must_be_tag) const;
 
     // ── nested key access ──
 
@@ -1089,6 +1091,8 @@ inline void map_scope::prefetch() {
             std::string label(static_cast<const char*>(item.label.string.ptr),
                               item.label.string.len);
             cache_.emplace(std::move(label), decoder::convert_item(item));
+        } else if (item.uLabelType == QCBOR_TYPE_INT64 || item.uLabelType == QCBOR_TYPE_UINT64) {
+            int_cache_.emplace_back(item.label.int64, decoder::convert_item(item));
         }
     }
 }
@@ -1129,15 +1133,12 @@ inline bool map_scope::contains(std::string_view key) {
 }
 
 inline bool map_scope::contains(int64_t key) {
-    // Integer-keyed entries are not in the string-key cache.
-    // Scan via GetNext — but without cursor corruption: prefetch already
-    // consumed all items, so we check the cache for key-like entries.
-    // Actually, prefetch only stores string keys. For int-keyed maps,
-    // we don't have a cache — use a linear probe.
-    (void)key;
-    // int-keyed maps not cached; callers should use for_each_int or
-    // avoid contains on integer-keyed maps.
-    return false; // stub — int-keyed map contains not supported yet
+    if (!prefetched_) prefetch();
+    // Scan int-keyed cache for the requested key.
+    for (auto& entry : int_cache_) {
+        if (entry.first == key) return true;
+    }
+    return false;
 }
 
 template<typename F>
@@ -1463,18 +1464,18 @@ inline array_scope item_proxy::as_array() {
 // ── item_proxy tagged getters ──
 
 #define QCBORPP_TAGGED_SZ_GETTER(fn_name, spiffy_fn) \
-inline std::string_view item_proxy::fn_name(uint8_t tag_req) const { \
+inline std::string_view item_proxy::fn_name(tag_requirement tag_req) const { \
     if (has_cached_) { \
         (void)tag_req; \
         return cached_.value.text; \
     } \
     UsefulBufC result{nullptr, 0}; \
     if (is_int_label_) { \
-        spiffy_fn##InMapN(dec_->raw_ctx(), int_label_, tag_req, &result); \
+        spiffy_fn##InMapN(dec_->raw_ctx(), int_label_, static_cast<uint8_t>(tag_req), &result); \
     } else if (!str_label_.empty()) { \
-        spiffy_fn##InMapSZ(dec_->raw_ctx(), str_label_.c_str(), tag_req, &result); \
+        spiffy_fn##InMapSZ(dec_->raw_ctx(), str_label_.c_str(), static_cast<uint8_t>(tag_req), &result); \
     } else { \
-        spiffy_fn(dec_->raw_ctx(), tag_req, &result); \
+        spiffy_fn(dec_->raw_ctx(), static_cast<uint8_t>(tag_req), &result); \
     } \
     dec_->check_err(); \
     return {static_cast<const char*>(result.ptr), result.len}; \
@@ -1483,7 +1484,7 @@ inline std::string_view item_proxy::fn_name(uint8_t tag_req) const { \
 QCBORPP_TAGGED_SZ_GETTER(as_date_string, QCBORDecode_GetDateString)
 QCBORPP_TAGGED_SZ_GETTER(as_days_string, QCBORDecode_GetDaysString)
 QCBORPP_TAGGED_SZ_GETTER(as_uri,         QCBORDecode_GetURI)
-QCBORPP_TAGGED_SZ_GETTER(as_b64,         QCBORDecode_GetB64)
+QCBORPP_TAGGED_SZ_GETTER(as_b64_text,    QCBORDecode_GetB64)
 QCBORPP_TAGGED_SZ_GETTER(as_b64url,      QCBORDecode_GetB64URL)
 QCBORPP_TAGGED_SZ_GETTER(as_regex,       QCBORDecode_GetRegex)
 
@@ -1492,18 +1493,18 @@ QCBORPP_TAGGED_SZ_GETTER(as_regex,       QCBORDecode_GetRegex)
 // ── item_proxy tagged int getters ──
 
 #define QCBORPP_TAGGED_INT_GETTER(fn_name, spiffy_fn) \
-inline int64_t item_proxy::fn_name(uint8_t tag_req) const { \
+inline int64_t item_proxy::fn_name(tag_requirement tag_req) const { \
     if (has_cached_) { \
         (void)tag_req; \
         return cached_.value.int64_val; \
     } \
     int64_t result = 0; \
     if (is_int_label_) { \
-        spiffy_fn##InMapN(dec_->raw_ctx(), int_label_, tag_req, &result); \
+        spiffy_fn##InMapN(dec_->raw_ctx(), int_label_, static_cast<uint8_t>(tag_req), &result); \
     } else if (!str_label_.empty()) { \
-        spiffy_fn##InMapSZ(dec_->raw_ctx(), str_label_.c_str(), tag_req, &result); \
+        spiffy_fn##InMapSZ(dec_->raw_ctx(), str_label_.c_str(), static_cast<uint8_t>(tag_req), &result); \
     } else { \
-        spiffy_fn(dec_->raw_ctx(), tag_req, &result); \
+        spiffy_fn(dec_->raw_ctx(), static_cast<uint8_t>(tag_req), &result); \
     } \
     dec_->check_err(); \
     return result; \
@@ -1517,17 +1518,17 @@ QCBORPP_TAGGED_INT_GETTER(as_days_epoch,  QCBORDecode_GetEpochDays)
 // ── item_proxy chrono getters ──
 
 inline std::chrono::system_clock::time_point
-item_proxy::as_time_point(uint8_t tag_req) const {
+item_proxy::as_time_point(tag_requirement tag_req) const {
     return std::chrono::system_clock::from_time_t(
         static_cast<std::time_t>(as_date_epoch(tag_req)));
 }
 
 inline std::chrono::duration<int64_t, std::ratio<86400>>
-item_proxy::as_days_duration(uint8_t tag_req) const {
+item_proxy::as_days_duration(tag_requirement tag_req) const {
     return std::chrono::duration<int64_t, std::ratio<86400>>(as_days_epoch(tag_req));
 }
 
-inline std::string_view item_proxy::as_mime(bool* is_binary, uint8_t tag_req) const {
+inline std::string_view item_proxy::as_mime_data(bool* is_binary, tag_requirement tag_req) const {
     if (has_cached_) {
         (void)tag_req;
         if (is_binary) *is_binary = false;
