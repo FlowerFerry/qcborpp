@@ -165,14 +165,38 @@ struct epoch_date {
     double  fraction;              ///< Fractional seconds (0.0–1.0).
 };
 
-/** Exponent and mantissa for decimal fractions and bigfloats. */
+/** Exponent and mantissa for decimal fractions and bigfloats.
+ *
+ * The mantissa is stored as either a plain int64_t integer or a bignum
+ * byte span (big-endian unsigned magnitude).  Call is_bignum() to
+ * determine which is active, then use as_integer() or as_big_num().
+ *
+ * This type is trivial and can reside inside a C union (e.g.
+ * decoded_item::value).
+ */
 struct exp_and_mantissa {
-    int64_t exponent;              ///< Base-10 (decimal) or base-2 (bigfloat) exponent.
+    int64_t exponent;               ///< Base-10 (decimal) or base-2 (bigfloat) exponent.
+
+    /// True when mantissa is a bignum (as_big_num() valid).
+    bool is_bignum() const noexcept { return mantissa_is_bignum_; }
+
+    /// Safe accessor. Returns the integer mantissa, or nullopt if bignum.
+    std::optional<int64_t> as_integer() const noexcept {
+        if (mantissa_is_bignum_) return std::nullopt;
+        return integer_;
+    }
+    /// Safe accessor. Returns the bignum mantissa, or nullopt if integer.
+    std::optional<const_byte_span> as_big_num() const noexcept {
+        if (!mantissa_is_bignum_) return std::nullopt;
+        return big_num_;
+    }
+
+private:
     union {
-        int64_t         integer;   ///< Integer mantissa.
-        const_byte_span big_num;   ///< Bignum mantissa (big-endian bytes).
-    } mantissa;
-    bool mantissa_is_bignum = false; ///< True if mantissa.big_num is valid.
+        int64_t         integer_;
+        const_byte_span big_num_;
+    };
+    bool mantissa_is_bignum_ = false;
 };
 
 /** Decoded CBOR item returned by low-level GetNext / get_items_in_map. */

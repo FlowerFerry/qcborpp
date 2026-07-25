@@ -225,6 +225,8 @@ enc.add_bigfloat(13107, -13);                // 1.6 (tag 5)
 // decode
 auto bn = m["big"].as_bignum();  // decoded_item with bytes + sign
 auto df = m["val"].as_decimal_fraction();  // exp_and_mantissa
+// df.is_bignum() → false: df.as_integer() → std::optional<int64_t>
+// df.is_bignum() → true: df.as_big_num() → std::optional<const_byte_span>
 ```
 
 ### Integer-Keyed Maps
