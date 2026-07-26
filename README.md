@@ -133,6 +133,15 @@ if (ec) { /* handle error */ }
 
 ## Performance Guide
 
+`force_prefetch` (default `true`) controls whether `dec.map()` and `as_map()` automatically traverse the map on entry. When `true`, all entries are cached immediately — subsequent `operator[]` calls are O(1) cache hits. Set to `false` for maps where you only need 1-2 lookups or want explicit control via `prefetch()`.
+
+```cpp
+decoder dec(data);
+dec.set_force_prefetch(false);   // opt out of auto-prefetch
+auto m = dec.map();              // does NOT prefetch — lazy mode
+auto v = m["key1"].get_or(0);   // Spiffy lookup, no cache build
+```
+
 Decoding a map with many key lookups has three strategies:
 
 | Strategy | 50-key lookup | When to use |
@@ -442,12 +451,11 @@ auto v = int64_t{m["key1"]};               // scans on first access
 Convenience methods that eliminate try/catch boilerplate and make decode code safer
 and more readable.
 
-> **Auto-prefetch behavior:** All convenience methods — `contains()`, `size()`,
-> `empty()`, `for_each()`, `map_scope::get_or(key, def)`, and `map_scope::try_get<T>(key)`
-> — implicitly call `prefetch()` on first use, caching all map entries for O(1)
-> subsequent lookups. `item_proxy::get_or()` and `item_proxy::try_get()` do **not**
-> auto-prefetch because they are typically used after an auto-prefetching map_scope
-> call or a manual `prefetch()`.
+> **Auto-prefetch behavior:** When `force_prefetch` is `true` (the default), `dec.map()` and `as_map()`
+> implicitly call `prefetch()` on entry, caching all map entries for O(1) subsequent lookups.
+> When `false`, no auto-prefetch occurs — use explicit `prefetch()` or let convenience methods
+> (`contains()`, `size()`, `for_each()`) trigger on-demand prefetch. `get_or()` and `try_get()`
+> on `item_proxy` never trigger prefetch; they use QCBOR Spiffy single-key lookup.
 
 **get_or — safe access with default fallback:**
 
@@ -779,6 +787,8 @@ decoder dec(const_byte_span data);
 | `map()` | Enter top-level map; returns `map_scope` |
 | `array()` | Enter top-level array; returns `array_scope` |
 | `finish()` | Complete decode; returns `std::error_code` |
+| `set_force_prefetch(bool)` | Enable/disable auto-prefetch on `map()` and `as_map()` (default: true) |
+| `force_prefetch()` | Query current force-prefetch setting |
 | `set_mem_pool(byte_span, bool)` | Set memory pool for indefinite-length strings |
 | `rewind()` | Reset decode cursor to start |
 | `v_get_next()` | Get next item (V-variant, throws on error), returns `decoded_item` |
@@ -790,8 +800,8 @@ decoder dec(const_byte_span data);
 #### `map_scope` — returned by `dec.map()`
 | Method | Description |
 |--------|-------------|
-| `prefetch()` | **One-pass cache**: decode all items into internal hash map. Subsequent `operator[]` calls are O(1) cache hits. Best for maps with many lookups. |
-| `operator[](std::string_view)` | Look up by string label. If prefetched, O(1); otherwise creates a lazy `item_proxy` that scans on first access. |
+| `prefetch()` | **One-pass cache**: decode all items into internal hash map. Subsequent `operator[]` calls are O(1) cache hits. Called automatically when `force_prefetch` is true. |
+| `operator[](std::string_view)` | Look up by string label. If prefetched, O(1); otherwise uses QCBOR Spiffy single-key scan. |
 | `operator[](int64_t)` | Look up by integer label |
 | `operator[](const char*)` | Look up by C-string label |
 | `get_items(specs, out)` | Batch-decode using QCBOR native `GetItemsInMap`. Single traversal for all keys. |
