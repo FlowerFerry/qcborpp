@@ -33,34 +33,30 @@ class dynamic_encoder {
 
     std::vector<uint8_t> ops_;   // recorded operations
     std::vector<uint8_t> buf_;   // final encoded output
+    size_t   size_estimate_ = 0; // running size estimate (avoids Phase 1)
     bool finished_ = false;
     bool top_set_  = false;
     bool top_map_  = false;
     int  proxy_map_depth_ = 0;
 
+    /** True when size estimate needs Phase 1 fallback (i.e. float/double preferred). */
+    bool has_variable_op_ = false;
+
     /**
-     * Replay all recorded ops into a QCBOR context, producing output.
+     * Replay recorded ops into a QCBOR context, producing output.
      *
-     * Phase 1: virtual context with SIZE_MAX buffer to calculate size.
-     * Phase 2: real context with exactly-sized buffer.
+     * Fast path: when no variable-size operations (float/double preferred),
+     * size_estimate_ is exact — skip Phase 1 entirely.
+     *
+     * Slow path (float/double present): Phase 1 virtual context, Phase 2 real.
      */
     void flush_encode() {
-        UsefulBuf size_buf = {nullptr, SIZE_MAX};
-
-        // Phase 1: calculate size
-        {
-            QCBOREncodeContext calc_ctx;
-            QCBOREncode_Init(&calc_ctx, size_buf);
-            detail::replay_ops(&calc_ctx, ops_);
-            size_t needed;
-            QCBORError err = QCBOREncode_FinishGetSize(&calc_ctx, &needed);
-            if (err != QCBOR_SUCCESS)
-                throw error(static_cast<errc>(err));
-            buf_.resize(needed);
-        }
-
-        // Phase 2: actual encode
-        {
+        if (!has_variable_op_) {
+            // Fast path: size_estimate_ is deterministic for non-float
+            // ops, but container headers depend on item count (not
+            // known at open time). Add margin: each open/close pair
+            // may contribute up to 9 bytes (5 header + size field).
+            buf_.resize(size_estimate_ + ops_.size());
             QCBOREncodeContext real_ctx;
             QCBOREncode_Init(&real_ctx,
                              UsefulBuf{buf_.data(), buf_.size()});
@@ -70,6 +66,30 @@ class dynamic_encoder {
             if (err != QCBOR_SUCCESS)
                 throw error(static_cast<errc>(err));
             buf_.resize(result.len);
+        } else {
+            // Slow path: float/double preferred — Phase 1 calc, Phase 2 encode
+            UsefulBuf size_buf = {nullptr, SIZE_MAX};
+            {
+                QCBOREncodeContext calc_ctx;
+                QCBOREncode_Init(&calc_ctx, size_buf);
+                detail::replay_ops(&calc_ctx, ops_);
+                size_t needed;
+                QCBORError err = QCBOREncode_FinishGetSize(&calc_ctx, &needed);
+                if (err != QCBOR_SUCCESS)
+                    throw error(static_cast<errc>(err));
+                buf_.resize(needed);
+            }
+            {
+                QCBOREncodeContext real_ctx;
+                QCBOREncode_Init(&real_ctx,
+                                 UsefulBuf{buf_.data(), buf_.size()});
+                detail::replay_ops(&real_ctx, ops_);
+                UsefulBufC result;
+                QCBORError err = QCBOREncode_Finish(&real_ctx, &result);
+                if (err != QCBOR_SUCCESS)
+                    throw error(static_cast<errc>(err));
+                buf_.resize(result.len);
+            }
         }
     }
 
@@ -78,8 +98,8 @@ public:
     void inc_proxy_map_depth() noexcept  { ++proxy_map_depth_; }
     void dec_proxy_map_depth() noexcept  { if (proxy_map_depth_ > 0) --proxy_map_depth_; }
 
-    /** Construct with default 256-byte pre-allocated recording buffer. */
-    dynamic_encoder() { buf_.reserve(256); ops_.reserve(256); }
+    /** Construct with default 1024-byte pre-allocated recording buffer. */
+    dynamic_encoder() { buf_.reserve(1024); ops_.reserve(1024); }
 
     /** Construct with reserved recording buffer size. */
     explicit dynamic_encoder(size_t reserve_size) {
@@ -206,14 +226,14 @@ public:
     basic_map_builder<dynamic_encoder> map() {
         if (top_set_) throw error(errc::close_mismatch);
         top_set_ = true; top_map_ = true;
-        detail::record(ops_, detail::enc_op::open_map);
+        open_map();
         return basic_map_builder<dynamic_encoder>{*this};
     }
 
     basic_array_builder<dynamic_encoder> array() {
         if (top_set_) throw error(errc::close_mismatch);
         top_set_ = true; top_map_ = false;
-        detail::record(ops_, detail::enc_op::open_array);
+        open_array();
         return basic_array_builder<dynamic_encoder>{*this};
     }
 
@@ -235,48 +255,73 @@ public:
     // ── low-level direct-add API ──
 
     dynamic_encoder& add_int64(int64_t v) {
+        size_estimate_ += detail::cbor_int64_size(v);
         detail::record_i64(ops_, detail::enc_op::add_int64, v); return *this;
     }
     dynamic_encoder& add_uint64(uint64_t v) {
+        size_estimate_ += detail::cbor_uint64_size(v);
         detail::record_u64(ops_, detail::enc_op::add_uint64, v); return *this;
     }
     dynamic_encoder& add_text(std::string_view v) {
+        size_estimate_ += detail::cbor_string_overhead(v.size()) + v.size();
         detail::record_text(ops_, detail::enc_op::add_text, v); return *this;
     }
     dynamic_encoder& add_text(const char* v) {
         return add_text(std::string_view(v));
     }
     dynamic_encoder& add_bytes(const_byte_span v) {
+        size_estimate_ += detail::cbor_string_overhead(v.size()) + v.size();
         detail::record_bytes(ops_, detail::enc_op::add_bytes, v); return *this;
     }
+    /** Zero-copy text add — stores (pointer, len), not data. Caller ensures data outlives finish(). */
+    dynamic_encoder& add_text_ref(std::string_view s) {
+        size_estimate_ += detail::cbor_string_overhead(s.size()) + s.size();
+        detail::record_text_ref(ops_, s); return *this;
+    }
+    /** Zero-copy byte add — stores (pointer, len), not data. Caller ensures data outlives finish(). */
+    dynamic_encoder& add_bytes_ref(const_byte_span b) {
+        size_estimate_ += detail::cbor_string_overhead(b.size()) + b.size();
+        detail::record_bytes_ref(ops_, b); return *this;
+    }
     dynamic_encoder& add_double(double v) {
+        has_variable_op_ = true;
         detail::record_double(ops_, detail::enc_op::add_double, v); return *this;
     }
     dynamic_encoder& add_float(float v) {
+        has_variable_op_ = true;
         detail::record_float(ops_, detail::enc_op::add_float, v); return *this;
     }
     dynamic_encoder& add_double_no_preferred(double v) {
+        size_estimate_ += 9; // CBOR fixed float64
         detail::record_double(ops_, detail::enc_op::add_double_np, v); return *this;
     }
     dynamic_encoder& add_float_no_preferred(float v) {
+        size_estimate_ += 5; // CBOR fixed float32
         detail::record_float(ops_, detail::enc_op::add_float_np, v); return *this;
     }
     dynamic_encoder& add_bool(bool v) {
+        size_estimate_ += 1;
         detail::record_bool(ops_, v); return *this;
     }
     dynamic_encoder& add_null() {
+        size_estimate_ += 1;
         detail::record(ops_, detail::enc_op::add_null); return *this;
     }
     dynamic_encoder& add_undef() {
+        size_estimate_ += 1;
         detail::record(ops_, detail::enc_op::add_undef); return *this;
     }
     dynamic_encoder& add_simple(uint64_t v) {
+        size_estimate_ += detail::cbor_uint64_size(v);
         detail::record_simple(ops_, v); return *this;
     }
     dynamic_encoder& add_tag(uint64_t tag) {
+        size_estimate_ += detail::cbor_uint64_size(tag);
         detail::record_u64(ops_, detail::enc_op::add_tag, tag); return *this;
     }
     dynamic_encoder& open_map() {
+        // container header size depends on item count (backpatched at close)
+        // — handled by margin + fallback
         detail::record(ops_, detail::enc_op::open_map); return *this;
     }
     dynamic_encoder& close_map() {

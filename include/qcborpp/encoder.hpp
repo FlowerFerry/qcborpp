@@ -50,7 +50,34 @@ enum class enc_op : uint8_t {
     add_simple  = 21,
     add_double_np = 22,
     add_float_np  = 23,
+    add_text_ref  = 24,
+    add_bytes_ref = 25,
 };
+
+/** Exact CBOR encoded size for int64_t (major type 0 or 1). */
+inline size_t cbor_int64_size(int64_t v) {
+    uint64_t u = (v >= 0) ? static_cast<uint64_t>(v) : static_cast<uint64_t>(-1 - v);
+    if (u <= 23)       return 1;
+    if (u <= 0xFF)     return 2;
+    if (u <= 0xFFFF)   return 3;
+    if (u <= 0xFFFFFFFFu) return 5;
+    return 9;
+}
+/** Exact CBOR encoded size for uint64_t (major type 0). */
+inline size_t cbor_uint64_size(uint64_t v) {
+    if (v <= 23)       return 1;
+    if (v <= 0xFF)     return 2;
+    if (v <= 0xFFFF)   return 3;
+    if (v <= 0xFFFFFFFFu) return 5;
+    return 9;
+}
+/** CBOR header bytes for a text/byte string of @p len (major type 2/3). */
+inline size_t cbor_string_overhead(size_t len) {
+    if (len <= 23)       return 1;
+    if (len <= 0xFF)     return 2;
+    if (len <= 0xFFFF)   return 3;
+    return 5; // uint16_t cap in qcborpp record functions
+}
 
 /**
  * Replay recorded operations into a QCBOR encode context using a
@@ -83,6 +110,18 @@ inline void replay_ops(QCBOREncodeContext* ctx, const std::vector<uint8_t>& ops)
         /* 21 add_simple */   [](QCBOREncodeContext* c, const uint8_t* p) { uint64_t v; std::memcpy(&v, p, 8); QCBOREncode_AddSimple(c, v); return p + 8; },
         /* 22 dbl_np    */    [](QCBOREncodeContext* c, const uint8_t* p) { double v;   std::memcpy(&v, p, 8); QCBOREncode_AddDoubleNoPreferred(c, v); return p + 8; },
         /* 23 flt_np    */    [](QCBOREncodeContext* c, const uint8_t* p) { float v;    std::memcpy(&v, p, 4); QCBOREncode_AddFloatNoPreferred(c, v);  return p + 4; },
+        /* 24 txt_ref   */    [](QCBOREncodeContext* c, const uint8_t* p) {
+            uintptr_t ptr; std::memcpy(&ptr, p, sizeof(ptr)); p += sizeof(ptr);
+            uint16_t  len; std::memcpy(&len, p, 2); p += 2;
+            UsefulBufC ub{reinterpret_cast<const void*>(ptr), len};
+            QCBOREncode_AddText(c, ub); return p;
+        },
+        /* 25 bytes_ref */    [](QCBOREncodeContext* c, const uint8_t* p) {
+            uintptr_t ptr; std::memcpy(&ptr, p, sizeof(ptr)); p += sizeof(ptr);
+            uint16_t  len; std::memcpy(&len, p, 2); p += 2;
+            UsefulBufC ub{reinterpret_cast<const void*>(ptr), len};
+            QCBOREncode_AddBytes(c, ub); return p;
+        },
     };
 
     const uint8_t* p = ops.data();
@@ -159,6 +198,28 @@ inline void record_simple(std::vector<uint8_t>& buf, uint64_t v) {
     buf.push_back(static_cast<uint8_t>(detail::enc_op::add_simple));
     uint8_t tmp[8]; std::memcpy(tmp, &v, 8);
     buf.insert(buf.end(), tmp, tmp + 8);
+}
+
+/** Append a zero-copy text reference op (pointer and length only). */
+inline void record_text_ref(std::vector<uint8_t>& buf, std::string_view s) {
+    buf.push_back(static_cast<uint8_t>(detail::enc_op::add_text_ref));
+    uintptr_t ptr = reinterpret_cast<uintptr_t>(s.data());
+    uint8_t ptmp[sizeof(ptr)]; std::memcpy(ptmp, &ptr, sizeof(ptr));
+    buf.insert(buf.end(), ptmp, ptmp + sizeof(ptr));
+    uint16_t len = static_cast<uint16_t>(s.size());
+    uint8_t ltmp[2]; std::memcpy(ltmp, &len, 2);
+    buf.insert(buf.end(), ltmp, ltmp + 2);
+}
+
+/** Append a zero-copy byte span reference op (pointer and length only). */
+inline void record_bytes_ref(std::vector<uint8_t>& buf, const_byte_span b) {
+    buf.push_back(static_cast<uint8_t>(detail::enc_op::add_bytes_ref));
+    uintptr_t ptr = reinterpret_cast<uintptr_t>(b.data());
+    uint8_t ptmp[sizeof(ptr)]; std::memcpy(ptmp, &ptr, sizeof(ptr));
+    buf.insert(buf.end(), ptmp, ptmp + sizeof(ptr));
+    uint16_t len = static_cast<uint16_t>(b.size());
+    uint8_t ltmp[2]; std::memcpy(ltmp, &len, 2);
+    buf.insert(buf.end(), ltmp, ltmp + 2);
 }
 
 } // namespace detail
