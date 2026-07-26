@@ -759,6 +759,17 @@ TEST_CASE("bench: text_ref vs add_text", "[bench][encode]") {
     constexpr size_t ITERS = 1000;
     std::string long_str(256, 'x');
 
+    auto r0 = measure("QCBOR C raw", ITERS, [&]() {
+        QCBOREncodeContext ctx;
+        QCBOREncode_Init(&ctx, UsefulBuf{nullptr, SIZE_MAX});
+        QCBOREncode_OpenArray(&ctx);
+        for (int i = 0; i < 200; ++i)
+            QCBOREncode_AddSZString(&ctx, long_str.c_str());
+        QCBOREncode_CloseArray(&ctx);
+        UsefulBufC out;
+        QCBOREncode_Finish(&ctx, &out);
+    });
+
     auto r1 = measure("dynamic add_text (copy)", ITERS, [&]() {
         dynamic_encoder enc;
         enc.open_array();
@@ -777,6 +788,7 @@ TEST_CASE("bench: text_ref vs add_text", "[bench][encode]") {
         enc.finish();
     });
 
+    WARN(r0.name << " : " << r0.us_per_op << " us/op");
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     CHECK(true);
@@ -918,6 +930,23 @@ TEST_CASE("bench: decode for_each 50 KV", "[bench][decode]") {
 
     constexpr size_t ITERS = 300;
 
+    auto r0 = measure("QCBOR C raw", ITERS, [&]() {
+        QCBORDecodeContext dctx;
+        QCBORDecode_Init(&dctx, UsefulBufC{bytes.data(), bytes.size()},
+                         QCBOR_DECODE_MODE_NORMAL);
+        QCBORDecode_EnterMap(&dctx, nullptr);
+        int64_t sum = 0;
+        QCBORItem item;
+        while (!QCBORDecode_GetNext(&dctx, &item)) {
+            if (item.uDataType != QCBOR_TYPE_TEXT_STRING) break;
+            QCBORDecode_GetNext(&dctx, &item);
+            sum += item.val.int64;
+        }
+        QCBORDecode_ExitMap(&dctx);
+        QCBORDecode_Finish(&dctx);
+        volatile int64_t v = sum; (void)v;
+    });
+
     auto r1 = measure("qcborpp operator[]", ITERS, [&]() {
         decoder dec(const_byte_span{bytes.data(), bytes.size()});
         auto m = dec.map();
@@ -942,6 +971,7 @@ TEST_CASE("bench: decode for_each 50 KV", "[bench][decode]") {
         volatile int64_t v = sum; (void)v;
     });
 
+    WARN(r0.name << " : " << r0.us_per_op << " us/op");
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     CHECK(true);
