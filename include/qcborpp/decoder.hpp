@@ -44,12 +44,27 @@ class decoder {
     int                array_depth_ = 0;
     int64_t            array_count_ = 0;
     bool               finished_  = false;
+    bool               force_prefetch_ = true;
+    bool               map_auto_rewind_ = true;
     uint8_t            first_byte_ = 0;
 
     void check_err() {
         auto e = QCBORDecode_GetError(&ctx_);
         if (e != QCBOR_SUCCESS)
             throw error(static_cast<errc>(e));
+    }
+
+    // Rewind the bounded map cursor after a Spiffy lookup, then check errors.
+    // On force_prefetch(false), Spiffy InMapSZ/InMapN calls consume the bounded
+    // map cursor; without a rewind the next lookup may fail even for valid keys.
+    // Exceptions are still thrown on error — the rewind happens regardless
+    // so that get_or/try_get catch blocks inherit a clean decoder state.
+    void auto_rewind_check() {
+        uint8_t err = ctx_.uLastError;
+        if (map_auto_rewind_ && map_depth_ > 0)
+            QCBORDecode_Rewind(&ctx_);
+        if (err != QCBOR_SUCCESS)
+            throw error(static_cast<errc>(err));
     }
 
     void enter_map() {
@@ -138,6 +153,46 @@ public:
         if (top_set_) return !top_map_;
         return first_byte_ != 0 && ((first_byte_ >> 5) & 0x07) == 4;
     }
+
+    /**
+     * @brief  Set whether map() and as_map() should force a full prefetch.
+     *
+     * When true (default), every map scope automatically prefetches all
+     * entries — optimal for multi-key lookups. When false, prefetch is
+     * on-demand: operator[] uses lazy single-key resolution, and only
+     * contains/size/for_each trigger prefetch.
+     *
+     * @return *this for chaining.
+     */
+    decoder& set_force_prefetch(bool enable) noexcept {
+        force_prefetch_ = enable;
+        return *this;
+    }
+
+    /** @brief Returns current force_prefetch setting. */
+    bool force_prefetch() const noexcept { return force_prefetch_; }
+
+    /**
+     * @brief  Enable or disable automatic map rewind after each label lookup.
+     *
+     * When true (default), every m["key"] or m[42] access automatically
+     * rewinds the bounded-map cursor so subsequent lookups start from the
+     * beginning — safe "random access" semantics even without prefetch.
+     * When false, lookups consume the map cursor sequentially, which is
+     * faster for known-ordered access patterns but fragile for random access.
+     *
+     * Has no effect when force_prefetch is true (cached lookups never touch
+     * the Spiffy cursor).
+     *
+     * @return *this for chaining.
+     */
+    decoder& set_map_auto_rewind(bool enable) noexcept {
+        map_auto_rewind_ = enable;
+        return *this;
+    }
+
+    /** @brief Returns current map_auto_rewind setting. */
+    bool map_auto_rewind() const noexcept { return map_auto_rewind_; }
 
     /**
      * @brief  Complete decoding and return the final status.
@@ -322,6 +377,9 @@ public:
      */
     void prefetch();
 
+    /** Static callback for QCBORDecode_GetItemsInMapWithCallback. */
+    static QCBORError prefetch_cb(void* ctx, const QCBORItem* item);
+
     /**
      * @brief  Look up an item by text label.
      *
@@ -365,7 +423,6 @@ public:
     template<typename T>
     T get_or(std::string_view key, T def) const {
         auto& self = const_cast<map_scope&>(*this);
-        if (!self.prefetched_) self.prefetch();
         return self[key].get_or(std::move(def));
     }
 
@@ -375,7 +432,6 @@ public:
     template<typename T>
     T get_or(int64_t key, T def) const {
         auto& self = const_cast<map_scope&>(*this);
-        if (!self.prefetched_) self.prefetch();
         return self[key].get_or(std::move(def));
     }
 
@@ -390,7 +446,6 @@ public:
     template<typename T>
     std::optional<T> try_get(std::string_view key) const noexcept {
         auto& self = const_cast<map_scope&>(*this);
-        if (!self.prefetched_) self.prefetch();
         return self[key].try_get<T>();
     }
 
@@ -400,7 +455,6 @@ public:
     template<typename T>
     std::optional<T> try_get(int64_t key) const noexcept {
         auto& self = const_cast<map_scope&>(*this);
-        if (!self.prefetched_) self.prefetch();
         return self[key].try_get<T>();
     }
 
@@ -506,6 +560,14 @@ class item_proxy {
 
     item_proxy(decoder& d, const decoded_item& di) noexcept
         : dec_(&d), cached_(di), has_cached_(true) {}
+
+    // Cache hit with a string label: preserves label for as_map()/as_array() lookups.
+    item_proxy(decoder& d, const decoded_item& di, std::string str_label) noexcept
+        : dec_(&d), str_label_(std::move(str_label)), cached_(di), has_cached_(true) {}
+
+    // Cache hit with an int label.
+    item_proxy(decoder& d, const decoded_item& di, int64_t int_label) noexcept
+        : dec_(&d), is_int_label_(true), int_label_(int_label), cached_(di), has_cached_(true) {}
 
     item_proxy(decoder& d, const std::string& label, bool is_int, int64_t ilabel) noexcept
         : dec_(&d), is_int_label_(is_int), int_label_(ilabel), str_label_(label) {}
@@ -1080,7 +1142,10 @@ inline map_scope decoder::map() {
     enter_map();
     top_set_ = true;
     top_map_ = true;
-    return map_scope{*this};
+    map_scope ms{*this};
+    if (force_prefetch_)
+        ms.prefetch();
+    return ms;
 }
 
 inline array_scope decoder::array() {
@@ -1134,28 +1199,33 @@ inline map_scope& map_scope::operator=(map_scope&& o) noexcept {
     return *this;
 }
 
-// ── map_scope::prefetch + operator[] ──
+// ── map_scope::prefetch_cb + prefetch + operator[] ──
+
+inline QCBORError map_scope::prefetch_cb(void* ctx, const QCBORItem* item) {
+    auto* self = static_cast<map_scope*>(ctx);
+    if (item->uLabelType == QCBOR_TYPE_TEXT_STRING) {
+        std::string label(static_cast<const char*>(item->label.string.ptr),
+                          item->label.string.len);
+        self->cache_.emplace(std::move(label), decoder::convert_item(*item));
+    } else if (item->uLabelType == QCBOR_TYPE_INT64 || item->uLabelType == QCBOR_TYPE_UINT64) {
+        self->int_cache_.emplace_back(item->label.int64, decoder::convert_item(*item));
+    }
+    return QCBOR_SUCCESS;
+}
 
 inline void map_scope::prefetch() {
     if (prefetched_) return;
     prefetched_ = true;
 
-    QCBORDecodeContext* ctx = dec_->raw_ctx();
-    while (true) {
-        QCBORItem item;
-        QCBORError err = QCBORDecode_GetNext(ctx, &item);
-        if (err == QCBOR_ERR_NO_MORE_ITEMS || err == QCBOR_ERR_HIT_END)
-            break;
-        dec_->check_err();
-
-        if (item.uLabelType == QCBOR_TYPE_TEXT_STRING) {
-            std::string label(static_cast<const char*>(item.label.string.ptr),
-                              item.label.string.len);
-            cache_.emplace(std::move(label), decoder::convert_item(item));
-        } else if (item.uLabelType == QCBOR_TYPE_INT64 || item.uLabelType == QCBOR_TYPE_UINT64) {
-            int_cache_.emplace_back(item.label.int64, decoder::convert_item(item));
-        }
-    }
+    // Use GetItemsInMapWithCallback with an empty item list so the
+    // callback fires for every top-level entry.  MapSearch internally
+    // saves/rewinds/restores the cursor — the decode context is left
+    // exactly as it was before the call, so all Spiffy lookups
+    // (EnterMapFromMapSZ, GetInt64ConvertInMapSZ, …) continue to work.
+    QCBORItem sentinel{};
+    QCBORDecode_GetItemsInMapWithCallback(
+        dec_->raw_ctx(), &sentinel, this, prefetch_cb);
+    dec_->check_err();
 }
 
 inline item_proxy map_scope::operator[](std::string_view key) {
@@ -1163,12 +1233,18 @@ inline item_proxy map_scope::operator[](std::string_view key) {
     if (prefetched_) {
         auto it = cache_.find(last_label_);
         if (it != cache_.end())
-            return item_proxy{*dec_, it->second};
+            return item_proxy{*dec_, it->second, last_label_};
     }
     return item_proxy{*dec_, last_label_, false, 0};
 }
 
 inline item_proxy map_scope::operator[](int64_t key) {
+    if (prefetched_) {
+        for (auto& [ik, iv] : int_cache_) {
+            if (ik == key)
+                return item_proxy{*dec_, iv, key};
+        }
+    }
     return item_proxy{*dec_, {}, true, key};
 }
 
@@ -1185,7 +1261,7 @@ inline item_proxy map_scope::operator[](int key) {
 
 inline size_t map_scope::size() {
     if (!prefetched_) prefetch();
-    return cache_.size();
+    return cache_.size() + int_cache_.size();
 }
 
 inline bool map_scope::contains(std::string_view key) {
@@ -1358,7 +1434,7 @@ inline int64_t item_proxy::get_int64() const {
         QCBORDecode_GetInt64Convert(dec_->raw_ctx(),
             QCBOR_CONVERT_TYPE_XINT64 | QCBOR_CONVERT_TYPE_FLOAT, &v);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return v;
 }
 
@@ -1386,7 +1462,7 @@ inline uint64_t item_proxy::get_uint64() const {
         QCBORDecode_GetUInt64Convert(dec_->raw_ctx(),
             QCBOR_CONVERT_TYPE_XINT64, &v);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return v;
 }
 
@@ -1414,7 +1490,7 @@ inline double item_proxy::get_double() const {
         QCBORDecode_GetDoubleConvert(dec_->raw_ctx(),
             QCBOR_CONVERT_TYPE_XINT64 | QCBOR_CONVERT_TYPE_FLOAT, &v);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return v;
 }
 
@@ -1428,7 +1504,7 @@ inline int64_t item_proxy::as_int64() const {
     } else {
         QCBORDecode_GetInt64(dec_->raw_ctx(), &v);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return v;
 }
 
@@ -1442,7 +1518,7 @@ inline uint64_t item_proxy::as_uint64() const {
     } else {
         QCBORDecode_GetUInt64(dec_->raw_ctx(), &v);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return v;
 }
 
@@ -1456,7 +1532,7 @@ inline std::string_view item_proxy::as_string() const {
     } else {
         QCBORDecode_GetTextString(dec_->raw_ctx(), &text);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return {static_cast<const char*>(text.ptr), text.len};
 }
 
@@ -1470,7 +1546,7 @@ inline const_byte_span item_proxy::as_bytes() const {
     } else {
         QCBORDecode_GetByteString(dec_->raw_ctx(), &bytes);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return {static_cast<const uint8_t*>(bytes.ptr), bytes.len};
 }
 
@@ -1484,7 +1560,7 @@ inline double item_proxy::as_double() const {
     } else {
         QCBORDecode_GetDouble(dec_->raw_ctx(), &v);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return v;
 }
 
@@ -1498,7 +1574,7 @@ inline bool item_proxy::as_bool() const {
     } else {
         QCBORDecode_GetBool(dec_->raw_ctx(), &v);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return v;
 }
 
@@ -1512,9 +1588,12 @@ inline map_scope item_proxy::as_map() {
     } else {
         QCBORDecode_EnterMap(dec_->raw_ctx(), nullptr);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     dec_->map_depth_++;
-    return map_scope{*dec_};
+    map_scope ms{*dec_};
+    if (dec_->force_prefetch_)
+        ms.prefetch();
+    return ms;
 }
 
 inline array_scope item_proxy::as_array() {
@@ -1525,7 +1604,7 @@ inline array_scope item_proxy::as_array() {
     } else {
         QCBORDecode_EnterArray(dec_->raw_ctx(), nullptr);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     dec_->array_depth_++;
     return array_scope{*dec_};
 }
@@ -1546,7 +1625,7 @@ inline std::string_view item_proxy::fn_name(tag_requirement tag_req) const { \
     } else { \
         spiffy_fn(dec_->raw_ctx(), static_cast<uint8_t>(tag_req), &result); \
     } \
-    dec_->check_err(); \
+    dec_->auto_rewind_check(); \
     return {static_cast<const char*>(result.ptr), result.len}; \
 }
 
@@ -1575,7 +1654,7 @@ inline int64_t item_proxy::fn_name(tag_requirement tag_req) const { \
     } else { \
         spiffy_fn(dec_->raw_ctx(), static_cast<uint8_t>(tag_req), &result); \
     } \
-    dec_->check_err(); \
+    dec_->auto_rewind_check(); \
     return result; \
 }
 
@@ -1597,6 +1676,62 @@ item_proxy::as_days_duration(tag_requirement tag_req) const {
     return std::chrono::duration<int64_t, std::ratio<86400>>(as_days_epoch(tag_req));
 }
 
+inline const_byte_span item_proxy::as_bignum() const {
+    // Bignum is always a tagged type — use QCBOR Spiffy directly.
+    // The cache may not store bignum bytes (convert_item skips them),
+    // so we don't take the cached fast path.
+    UsefulBufC result{nullptr, 0};
+    bool is_negative = false;
+    if (is_int_label_) {
+        QCBORDecode_GetBignumInMapN(dec_->raw_ctx(), int_label_,
+            static_cast<uint8_t>(tag_requirement::must_be_tag), &result, &is_negative);
+    } else if (!str_label_.empty()) {
+        QCBORDecode_GetBignumInMapSZ(dec_->raw_ctx(), str_label_.c_str(),
+            static_cast<uint8_t>(tag_requirement::must_be_tag), &result, &is_negative);
+    } else {
+        QCBORDecode_GetBignum(dec_->raw_ctx(),
+            static_cast<uint8_t>(tag_requirement::must_be_tag), &result, &is_negative);
+    }
+    dec_->auto_rewind_check();
+    (void)is_negative; // sign is reflected in type(), caller checks pos/neg_bignum
+    return {static_cast<const uint8_t*>(result.ptr), result.len};
+}
+
+inline exp_and_mantissa item_proxy::as_decimal_fraction(tag_requirement tag_req) const {
+    // Always use QCBOR Spiffy — convert_item doesn't populate exp_mantissa,
+    // so the cached path would return uninitialized data.
+    int64_t mantissa = 0, exponent = 0;
+    if (is_int_label_) {
+        QCBORDecode_GetDecimalFractionInMapN(dec_->raw_ctx(), int_label_,
+            static_cast<uint8_t>(tag_req), &mantissa, &exponent);
+    } else if (!str_label_.empty()) {
+        QCBORDecode_GetDecimalFractionInMapSZ(dec_->raw_ctx(), str_label_.c_str(),
+            static_cast<uint8_t>(tag_req), &mantissa, &exponent);
+    } else {
+        QCBORDecode_GetDecimalFraction(dec_->raw_ctx(),
+            static_cast<uint8_t>(tag_req), &mantissa, &exponent);
+    }
+    dec_->auto_rewind_check();
+    return exp_and_mantissa{exponent, mantissa};
+}
+
+inline exp_and_mantissa item_proxy::as_bigfloat(tag_requirement tag_req) const {
+    // Always use QCBOR Spiffy — convert_item doesn't populate exp_mantissa.
+    int64_t mantissa = 0, exponent = 0;
+    if (is_int_label_) {
+        QCBORDecode_GetBigFloatInMapN(dec_->raw_ctx(), int_label_,
+            static_cast<uint8_t>(tag_req), &mantissa, &exponent);
+    } else if (!str_label_.empty()) {
+        QCBORDecode_GetBigFloatInMapSZ(dec_->raw_ctx(), str_label_.c_str(),
+            static_cast<uint8_t>(tag_req), &mantissa, &exponent);
+    } else {
+        QCBORDecode_GetBigFloat(dec_->raw_ctx(),
+            static_cast<uint8_t>(tag_req), &mantissa, &exponent);
+    }
+    dec_->auto_rewind_check();
+    return exp_and_mantissa{exponent, mantissa};
+}
+
 inline std::string_view item_proxy::as_mime_data(bool* is_binary, tag_requirement tag_req) const {
     if (has_cached_) {
         (void)tag_req;
@@ -1612,7 +1747,7 @@ inline std::string_view item_proxy::as_mime_data(bool* is_binary, tag_requiremen
     } else {
         QCBORDecode_GetMIMEMessage(dec_->raw_ctx(), static_cast<uint8_t>(tag_req), &result, &is_tag257);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     if (is_binary) *is_binary = is_tag257;
     return {static_cast<const char*>(result.ptr), result.len};
 }
@@ -1630,7 +1765,7 @@ inline const_byte_span item_proxy::as_uuid(tag_requirement tag_req) const {
     } else {
         QCBORDecode_GetBinaryUUID(dec_->raw_ctx(), static_cast<uint8_t>(tag_req), &result);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     return {static_cast<const uint8_t*>(result.ptr), result.len};
 }
 
@@ -1649,7 +1784,7 @@ inline cbor_type item_proxy::type() const {
             QCBORDecode_GetItemInMapSZ(dec_->raw_ctx(), str_label_.c_str(),
                                        QCBOR_TYPE_ANY, &item);
         }
-        dec_->check_err();
+        dec_->auto_rewind_check();
         return static_cast<cbor_type>(item.uDataType);
     }
 
@@ -1702,7 +1837,7 @@ inline item_proxy item_proxy::operator[](std::string_view subkey) {
     } else {
         QCBORDecode_EnterMap(dec_->raw_ctx(), nullptr);
     }
-    dec_->check_err();
+    dec_->auto_rewind_check();
     dec_->map_depth_++;
     return item_proxy{*dec_, std::string(subkey), false, 0};
 }
@@ -1777,6 +1912,12 @@ inline decoded_item decoder::convert_item(const QCBORItem& item) {
         di.value.bytes = const_byte_span(
             static_cast<const uint8_t*>(item.val.string.ptr),
             item.val.string.len);
+        break;
+    case QCBOR_TYPE_DATE_EPOCH:
+        di.value.int64_val = item.val.epochDate.nSeconds;
+        break;
+    case QCBOR_TYPE_DAYS_EPOCH:
+        di.value.int64_val = item.val.epochDays;
         break;
     default:
         // For other types, we just have the type info

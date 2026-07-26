@@ -175,6 +175,10 @@ struct epoch_date {
  * decoded_item::value).
  */
 struct exp_and_mantissa {
+    /** Construct with an integer mantissa and exponent. */
+    explicit exp_and_mantissa(int64_t e, int64_t m) noexcept
+        : exponent(e), integer_(m), mantissa_is_bignum_(false) {}
+
     int64_t exponent;               ///< Base-10 (decimal) or base-2 (bigfloat) exponent.
 
     /// True when mantissa is a bignum (as_big_num() valid).
