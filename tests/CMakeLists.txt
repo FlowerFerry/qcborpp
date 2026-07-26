@@ -54,6 +54,8 @@ add_executable(qcborpp_tests
     test_chrono.cpp
     test_init_list.cpp
     test_decoder_convenience.cpp
+    test_decoder_tagged.cpp
+    test_coverage_gap4.cpp
     test_main.cpp
 )
 
