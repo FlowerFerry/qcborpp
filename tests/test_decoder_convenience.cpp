@@ -466,3 +466,188 @@ TEST_CASE("convenience: empty — truly empty map returns true", "[convenience]"
     auto m = dec.map();
     CHECK(m.empty());
 }
+
+// ===== force_prefetch(false) — lazy decode path =====
+
+TEST_CASE("force_prefetch(false): operator[] returns correct values", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["name"]   = "Niels";
+        m["count"]  = 42;
+        m["active"] = true;
+        m["pi"]     = 3.14;
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    // Each access hits the Spiffy lazy path (GetItemInMapSZ)
+    CHECK(std::string_view(m["name"]) == "Niels");
+    CHECK(m["count"].get_or(0) == 42);
+    CHECK(m["active"].get_or(false) == true);
+    CHECK(std::abs(m["pi"].get_or(0.0) - 3.14) < 0.001);
+}
+
+TEST_CASE("force_prefetch(false): contains triggers on-demand prefetch", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["a"] = 1;
+        m["b"] = 2;
+        m["c"] = 3;
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    // contains() triggers prefetch → cache_ populated
+    CHECK(m.contains("a"));
+    CHECK(m.contains("b"));
+    CHECK_FALSE(m.contains("zzz"));
+
+    // After contains(), operator[] hits the now-populated cache
+    CHECK(m["a"].get_or(0) == 1);
+    CHECK(m["b"].get_or(0) == 2);
+    CHECK(m["c"].get_or(0) == 3);
+}
+
+TEST_CASE("force_prefetch(false): size triggers on-demand prefetch", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["x"] = 10;
+        m["y"] = 20;
+        m["z"] = 30;
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    CHECK(m.size() == 3);
+    // After size(), operator[] hits cache
+    CHECK(m["x"].get_or(0) == 10);
+}
+
+TEST_CASE("force_prefetch(false): get_or works without prefetch", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["value"] = 99;
+        m["text"]  = "hello";
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    // get_or uses Spiffy GetItemInMapSZ — no prefetch needed
+    CHECK(m["value"].get_or(0) == 99);
+    CHECK(m["text"].get_or(std::string_view{"x"}) == "hello");
+    CHECK(m["missing"].get_or(-1) == -1);
+}
+
+TEST_CASE("force_prefetch(false): try_get works without prefetch", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["val"] = 77;
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    auto v1 = m["val"].try_get<int64_t>();
+    REQUIRE(v1.has_value());
+    CHECK(*v1 == 77);
+
+    auto v2 = m["ghost"].try_get<int64_t>();
+    CHECK_FALSE(v2.has_value());
+}
+
+TEST_CASE("force_prefetch(false): nested map via as_map()", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto outer = enc.map();
+        outer["top"] = "level1";
+        {
+            auto inner = outer["inner"].map();
+            inner["deep"] = "level2";
+        }
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    // Outer map: lazy access
+    CHECK(std::string_view(m["top"]) == "level1");
+
+    // Nested map: as_map() on label-enabled proxy (force_prefetch_=false → no auto-prefetch)
+    auto inner = m["inner"].as_map();
+    CHECK(std::string_view(inner["deep"]) == "level2");
+}
+
+TEST_CASE("force_prefetch(false): for_each triggers prefetch", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["k1"] = 1;
+        m["k2"] = 2;
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    int count = 0;
+    m.for_each([&](std::string_view, decoded_item) { ++count; });
+    CHECK(count == 2);
+}
+
+TEST_CASE("force_prefetch(false): for_each_int triggers prefetch", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m[10] = "ten";
+        m[20] = "twenty";
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    int count = 0;
+    m.for_each_int([&](int64_t, decoded_item) { ++count; });
+    CHECK(count == 2);
+}
+
+TEST_CASE("force_prefetch(false): mixed string and int keys", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["name"] = "test";
+        m[42]     = "answer";
+    }
+    decoder dec(enc.finish());
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+
+    CHECK(m.contains("name"));
+    CHECK(m.contains(42));
+    CHECK(std::string_view(m["name"]) == "test");
+    CHECK(m.size() == 2);
+}
+
+// Verify default is still force_prefetch=true
+TEST_CASE("force_prefetch: default is true", "[force_prefetch]") {
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        for (int i = 0; i < 20; ++i)
+            m["k" + std::to_string(i)] = i;
+    }
+    decoder dec(enc.finish());
+    CHECK(dec.force_prefetch() == true);
+
+    // Default path (with prefetch) works as before
+    auto m = dec.map();
+    CHECK(m["k5"].get_or(-1) == 5);
+    CHECK(m.size() == 20);
+}
