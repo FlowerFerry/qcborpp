@@ -193,6 +193,108 @@ TEST_CASE("dynamic_encoder: finish twice throws", "[dynamic_encoder][primitives]
     REQUIRE_THROWS_AS(enc.finish(), error);
 }
 
+TEST_CASE("dynamic_encoder: add_text_ref zero-copy", "[dynamic_encoder][primitives]") {
+    dynamic_encoder enc;
+    std::string hello = "hello zero-copy";
+    enc.open_array();
+    enc.add_text_ref(hello);
+    enc.add_text_ref(std::string_view("world"));
+    enc.close_array();
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto arr = dec.array();
+    REQUIRE(std::string(arr.next()) == "hello zero-copy");
+    REQUIRE(std::string(arr.next()) == "world");
+    dec.finish();
+}
+
+TEST_CASE("dynamic_encoder: add_bytes_ref zero-copy", "[dynamic_encoder][primitives]") {
+    std::vector<uint8_t> raw = {0xAA, 0xBB, 0xCC, 0xDD};
+    dynamic_encoder enc;
+    enc.open_array();
+    enc.add_bytes_ref({raw.data(), raw.size()});
+    enc.close_array();
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto arr = dec.array();
+    auto result = static_cast<const_byte_span>(arr.next());
+    REQUIRE(result.size() == 4);
+    REQUIRE(result[0] == 0xAA);
+    REQUIRE(result[1] == 0xBB);
+    REQUIRE(result[2] == 0xCC);
+    REQUIRE(result[3] == 0xDD);
+    dec.finish();
+}
+
+TEST_CASE("dynamic_encoder: fast-path roundtrip (no float)", "[dynamic_encoder][primitives]") {
+    // Exercises the size_estimate_ fast path — no float/double preferred ops
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["int_key"]    = int64_t(42);
+        m["neg_key"]    = int64_t(-128);
+        m["uint_key"]   = uint64_t(1000);
+        m["text_key"]   = "a text value";
+        m["bool_key"]   = true;
+        m["null_key"]   = nullptr;
+        m["nested"].array() << 1 << 2 << 3;
+    }
+    auto data = enc.finish();
+    REQUIRE(data.size() > 0);
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(int64_t(m["int_key"]) == 42);
+    REQUIRE(int64_t(m["neg_key"]) == -128);
+    REQUIRE(uint64_t(m["uint_key"]) == 1000);
+    REQUIRE(std::string_view(m["text_key"]) == "a text value");
+    REQUIRE(bool(m["bool_key"]) == true);
+
+    auto inner = m["nested"].as_array();
+    REQUIRE(int64_t(inner.next()) == 1);
+    REQUIRE(int64_t(inner.next()) == 2);
+    REQUIRE(int64_t(inner.next()) == 3);
+    dec.finish();
+}
+
+TEST_CASE("dynamic_encoder: fast-path large array", "[dynamic_encoder][primitives]") {
+    // 1000 ints → size_estimate_ must be exact enough
+    dynamic_encoder enc;
+    enc.open_array();
+    for (int i = 0; i < 1000; ++i)
+        enc.add_int64(i * 7);
+    enc.close_array();
+    auto data = enc.finish();
+    REQUIRE(data.size() > 0);
+
+    decoder dec(data);
+    auto arr = dec.array();
+    int64_t sum = 0;
+    while (!arr.done())
+        sum += int64_t(arr.next());
+    REQUIRE(sum == 3496500); // sum(i*7 for i=0..999)
+    dec.finish();
+}
+
+TEST_CASE("dynamic_encoder: slow-path with float still works", "[dynamic_encoder][primitives]") {
+    // has_variable_op_=true → Phase 1 + Phase 2 still correct
+    dynamic_encoder enc;
+    enc.open_array();
+    enc.add_double(3.14159265358979);
+    enc.add_int64(42);
+    enc.close_array();
+    auto data = enc.finish();
+    REQUIRE(data.size() > 0);
+
+    decoder dec(data);
+    auto arr = dec.array();
+    REQUIRE_THAT(static_cast<double>(arr.next()), Catch::Matchers::WithinAbs(3.14159265358979, 1e-12));
+    REQUIRE(int64_t(arr.next()) == 42);
+    dec.finish();
+}
+
 TEST_CASE("dynamic_encoder: add_int64 range covers int32 boundaries", "[dynamic_encoder][primitives]") {
     dynamic_encoder enc;
     enc.open_array();

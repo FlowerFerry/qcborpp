@@ -163,7 +163,7 @@ Encoder choice:
 | Encoder | Buffer | Speed | When to use |
 |---------|--------|-------|-------------|
 | `encoder(buf)` | caller-provided | fastest (1.2x QCBOR C) | Known size, performance-critical |
-| `dynamic_encoder` | auto heap buffer | 3-5x slower | Unknown size, one-off encoding |
+| `dynamic_encoder` | auto heap buffer | 2-5x slower | Unknown size, one-off encoding |
 
 ---
 
@@ -676,7 +676,11 @@ encoder& enc.add_binary_uuid(const_byte_span uuid, bool as_tag = true);
 #### `dynamic_encoder` (auto-sizing)
 ```cpp
 dynamic_encoder enc;
+dynamic_encoder enc(size_t reserve_hint);     // pre-allocate recording buffer
 dynamic_encoder enc(std::initializer_list<cbor_ref> init);  // init-list constructor
+
+void enc.reserve(size_t n);                   // pre-allocate internal buffers
+size_t enc.capacity() const noexcept;          // current reserved capacity
 
 // ── top-level (same as encoder) ──
 basic_map_builder<dynamic_encoder>   enc.map();
@@ -686,10 +690,16 @@ bool enc.is_array() const noexcept;
 const_byte_span enc.finish();
 const_byte_span enc.data()   const noexcept;
 
+// ── zero-copy reference APIs (caller ensures data outlives finish()) ──
+enc.add_text_ref(std::string_view);     // store (ptr, len) only — no copy
+enc.add_bytes_ref(const_byte_span);     // store (ptr, len) only — no copy
+
 // ── low-level (same API surface as encoder) ──
 // All add_*, open_map/array, close_map/array, tagged types
 // — identical to encoder above.
 ```
+
+> **Performance note** — `dynamic_encoder` now tracks encoded size during recording and skips the sizing pass (Phase 1) when no `float` / `double` preferred operations are used. The fast path uses a conservative margin for container headers and falls back to full two-pass if the margin is exceeded.
 
 ### Encoding Builders (template, work with both encoders)
 
