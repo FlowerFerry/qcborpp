@@ -695,3 +695,32 @@ TEST_CASE("error: static encoder finish() throws but finish() called again", "[e
     // Second finish after failed first should throw.
     REQUIRE_THROWS_AS(enc.finish(), error);
 }
+
+// ── byte_span::operator[] (non-const) ─────────────────────────────────
+
+TEST_CASE("byte_span: non-const operator[]", "[coverage3][types]")
+{
+    uint8_t raw[] = {0x01, 0x02, 0x03, 0x04};
+    byte_span bs(raw, sizeof(raw));
+
+    REQUIRE(bs[0] == 0x01);
+    REQUIRE(bs[3] == 0x04);
+
+    // Modify through non-const operator[]
+    bs[0] = 0xFF;
+    bs[3] = 0xEE;
+    REQUIRE(bs[0] == 0xFF);
+    REQUIRE(bs[3] == 0xEE);
+    // Original buffer modified
+    REQUIRE(raw[0] == 0xFF);
+    REQUIRE(raw[3] == 0xEE);
+}
+
+// ── error(errc, const char*) two-arg constructor ──────────────────────
+
+TEST_CASE("error: two-arg constructor with custom message", "[coverage3][error]")
+{
+    error e(errc::buffer_too_small, "custom buffer overflow message");
+    REQUIRE(e.code() == errc::buffer_too_small);
+    REQUIRE(std::string(e.what()) == "custom buffer overflow message");
+}
