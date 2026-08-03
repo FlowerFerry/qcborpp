@@ -179,6 +179,17 @@ struct exp_and_mantissa {
     explicit exp_and_mantissa(int64_t e, int64_t m) noexcept
         : exponent(e), integer_(m), mantissa_is_bignum_(false) {}
 
+    /** Construct with a bignum mantissa and exponent.
+     *  The bignum bytes are NOT copied — the span must remain valid
+     *  for the lifetime of this struct. */
+    static exp_and_mantissa from_bignum(int64_t e, const_byte_span m) noexcept {
+        exp_and_mantissa em{0, 0};
+        em.exponent = e;
+        em.big_num_ = m;
+        em.mantissa_is_bignum_ = true;
+        return em;
+    }
+
     int64_t exponent;               ///< Base-10 (decimal) or base-2 (bigfloat) exponent.
 
     /// True when mantissa is a bignum (as_big_num() valid).

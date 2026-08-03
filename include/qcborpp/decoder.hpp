@@ -1682,9 +1682,18 @@ item_proxy::as_days_duration(tag_requirement tag_req) const {
 }
 
 inline const_byte_span item_proxy::as_bignum() const {
-    // Bignum is always a tagged type — use QCBOR Spiffy directly.
-    // The cache may not store bignum bytes (convert_item skips them),
-    // so we don't take the cached fast path.
+    // Cache fast path — convert_item now caches bignum bytes.
+    // Array path next() consumes via VGetNext and caches; map path
+    // via InMapN/InMapSZ falls through to Spiffy.
+    if (has_cached_) {
+        if (cached_.type != cbor_type::pos_bignum &&
+            cached_.type != cbor_type::neg_bignum) {
+            dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+            dec_->check_err();
+        }
+        return cached_.value.bytes;
+    }
+    // Map-path fallback: use QCBOR Spiffy.
     UsefulBufC result{nullptr, 0};
     bool is_negative = false;
     if (is_int_label_) {
@@ -1703,8 +1712,22 @@ inline const_byte_span item_proxy::as_bignum() const {
 }
 
 inline exp_and_mantissa item_proxy::as_decimal_fraction(tag_requirement tag_req) const {
-    // Always use QCBOR Spiffy — convert_item doesn't populate exp_mantissa,
-    // so the cached path would return uninitialized data.
+    // Cache fast path — convert_item now caches exp_mantissa.
+    if (has_cached_) {
+        if (cached_.type != cbor_type::decimal_fraction &&
+            cached_.type != cbor_type::decimal_fraction_pos_bignum &&
+            cached_.type != cbor_type::decimal_fraction_neg_bignum) {
+            dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+            dec_->check_err();
+        }
+        // These cbor_types are always tagged — must_not_be_tag is an error.
+        if (tag_req == tag_requirement::must_not_be_tag) {
+            dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+            dec_->check_err();
+        }
+        return cached_.value.exp_mantissa;
+    }
+    // Map-path fallback: use QCBOR Spiffy.
     int64_t mantissa = 0, exponent = 0;
     if (is_int_label_) {
         QCBORDecode_GetDecimalFractionInMapN(dec_->raw_ctx(), int_label_,
@@ -1721,7 +1744,21 @@ inline exp_and_mantissa item_proxy::as_decimal_fraction(tag_requirement tag_req)
 }
 
 inline exp_and_mantissa item_proxy::as_bigfloat(tag_requirement tag_req) const {
-    // Always use QCBOR Spiffy — convert_item doesn't populate exp_mantissa.
+    // Cache fast path — convert_item now caches exp_mantissa.
+    if (has_cached_) {
+        if (cached_.type != cbor_type::bigfloat &&
+            cached_.type != cbor_type::bigfloat_pos_bignum &&
+            cached_.type != cbor_type::bigfloat_neg_bignum) {
+            dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+            dec_->check_err();
+        }
+        if (tag_req == tag_requirement::must_not_be_tag) {
+            dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
+            dec_->check_err();
+        }
+        return cached_.value.exp_mantissa;
+    }
+    // Map-path fallback: use QCBOR Spiffy.
     int64_t mantissa = 0, exponent = 0;
     if (is_int_label_) {
         QCBORDecode_GetBigFloatInMapN(dec_->raw_ctx(), int_label_,
@@ -1923,6 +1960,32 @@ inline decoded_item decoder::convert_item(const QCBORItem& item) {
         break;
     case QCBOR_TYPE_DAYS_EPOCH:
         di.value.int64_val = item.val.epochDays;
+        break;
+    // Semantic tagged types — bignum (was missing from cache, caused
+    // array-path getter failures since the cursor had moved past the item).
+    case QCBOR_TYPE_POSBIGNUM:
+    case QCBOR_TYPE_NEGBIGNUM:
+        di.value.bytes = const_byte_span(
+            static_cast<const uint8_t*>(item.val.bigNum.ptr),
+            item.val.bigNum.len);
+        break;
+    // Decimal fraction / bigfloat with integer mantissa
+    case QCBOR_TYPE_DECIMAL_FRACTION:
+    case QCBOR_TYPE_BIGFLOAT:
+        di.value.exp_mantissa = exp_and_mantissa(
+            item.val.expAndMantissa.nExponent,
+            item.val.expAndMantissa.Mantissa.nInt);
+        break;
+    // Decimal fraction / bigfloat with bignum mantissa
+    case QCBOR_TYPE_DECIMAL_FRACTION_POS_BIGNUM:
+    case QCBOR_TYPE_DECIMAL_FRACTION_NEG_BIGNUM:
+    case QCBOR_TYPE_BIGFLOAT_POS_BIGNUM:
+    case QCBOR_TYPE_BIGFLOAT_NEG_BIGNUM:
+        di.value.exp_mantissa = exp_and_mantissa::from_bignum(
+            item.val.expAndMantissa.nExponent,
+            const_byte_span(
+                static_cast<const uint8_t*>(item.val.expAndMantissa.Mantissa.bigNum.ptr),
+                item.val.expAndMantissa.Mantissa.bigNum.len));
         break;
     default:
         // For other types, we just have the type info

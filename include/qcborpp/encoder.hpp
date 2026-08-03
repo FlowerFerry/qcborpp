@@ -52,6 +52,7 @@ enum class enc_op : uint8_t {
     add_float_np  = 23,
     add_text_ref  = 24,
     add_bytes_ref = 25,
+    add_encoded   = 26,
 };
 
 /** Exact CBOR encoded size for int64_t (major type 0 or 1). */
@@ -121,6 +122,11 @@ inline void replay_ops(QCBOREncodeContext* ctx, const std::vector<uint8_t>& ops)
             uint16_t  len; std::memcpy(&len, p, 2); p += 2;
             UsefulBufC ub{reinterpret_cast<const void*>(ptr), len};
             QCBOREncode_AddBytes(c, ub); return p;
+        },
+        /* 26 add_encoded */   [](QCBOREncodeContext* c, const uint8_t* p) {
+            uint16_t len; std::memcpy(&len, p, 2); p += 2;
+            UsefulBufC enc{p, len};
+            QCBOREncode_AddEncoded(c, enc); return p + len;
         },
     };
 

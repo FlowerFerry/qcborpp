@@ -444,7 +444,9 @@ public:
     // ── encoded insertion ──
 
     dynamic_encoder& add_encoded(const_byte_span encoded) {
-        return add_bytes(encoded);
+        size_estimate_ += encoded.size();
+        detail::record_bytes(ops_, detail::enc_op::add_encoded, encoded);
+        return *this;
     }
 };
 

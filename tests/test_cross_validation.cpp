@@ -759,17 +759,19 @@ TEST_CASE("cross_val: qcbor-c→qcborpp bignum", "[cross_validation]") {
         QCBOREncode_CloseArray(c);
     });
 
-    // Verify via QCBOR C walk — qcborpp as_bignum() has known limitation
-    // with non-prefetch raw-ctx positioning in array context.
-    bool found = false;
-    qcbor_decode_walk(const_byte_span{bytes.data(), bytes.size()}, [&](const QCBORItem& item, int) {
-        if (item.uDataType == QCBOR_TYPE_POSBIGNUM) {
-            CHECK(item.val.bigNum.len == 3);
-            CHECK(static_cast<const uint8_t*>(item.val.bigNum.ptr)[0] == 0x01);
-            found = true;
-        }
-    });
-    REQUIRE(found);
+    // Verify via qcborpp decoder — as_bignum() must work in array context.
+    decoder dec(const_byte_span{bytes.data(), bytes.size()});
+    {
+        auto a = dec.array();
+        auto item = a.next();
+        REQUIRE(item.type() == cbor_type::pos_bignum);
+        auto b = item.as_bignum();
+        REQUIRE(b.size() == 3);
+        REQUIRE(b[0] == 0x01);
+        REQUIRE(b[1] == 0x23);
+        REQUIRE(b[2] == 0x45);
+    } // array_scope dtor calls exit_array before finish()
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("cross_val: qcbor-c→qcborpp uuid", "[cross_validation]") {
@@ -802,16 +804,17 @@ TEST_CASE("cross_val: qcbor-c→qcborpp decimal_fraction", "[cross_validation]")
         QCBOREncode_CloseArray(c);
     });
 
-    // Verify via QCBOR C walk — same limitation as bignum.
-    bool found = false;
-    qcbor_decode_walk(const_byte_span{bytes.data(), bytes.size()}, [&](const QCBORItem& item, int) {
-        if (item.uDataType == QCBOR_TYPE_DECIMAL_FRACTION) {
-            CHECK(item.val.expAndMantissa.nExponent == -2);
-            CHECK(item.val.expAndMantissa.Mantissa.nInt == 314);
-            found = true;
-        }
-    });
-    REQUIRE(found);
+    // Verify via qcborpp decoder — as_decimal_fraction() must work in array context.
+    decoder dec(const_byte_span{bytes.data(), bytes.size()});
+    {
+        auto a = dec.array();
+        auto value = a.next().as_decimal_fraction();
+        REQUIRE_FALSE(value.is_bignum());
+        REQUIRE(value.exponent == -2);
+        REQUIRE(value.as_integer().has_value());
+        REQUIRE(*value.as_integer() == 314);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("cross_val: qcbor-c→qcborpp bigfloat", "[cross_validation]") {
@@ -825,16 +828,17 @@ TEST_CASE("cross_val: qcbor-c→qcborpp bigfloat", "[cross_validation]") {
         QCBOREncode_CloseArray(c);
     });
 
-    // Verify via QCBOR C walk — same limitation as bignum.
-    bool found = false;
-    qcbor_decode_walk(const_byte_span{bytes.data(), bytes.size()}, [&](const QCBORItem& item, int) {
-        if (item.uDataType == QCBOR_TYPE_BIGFLOAT) {
-            CHECK(item.val.expAndMantissa.nExponent == 3);
-            CHECK(item.val.expAndMantissa.Mantissa.nInt == 100);
-            found = true;
-        }
-    });
-    REQUIRE(found);
+    // Verify via qcborpp decoder — as_bigfloat() must work in array context.
+    decoder dec(const_byte_span{bytes.data(), bytes.size()});
+    {
+        auto a = dec.array();
+        auto value = a.next().as_bigfloat();
+        REQUIRE_FALSE(value.is_bignum());
+        REQUIRE(value.exponent == 3);
+        REQUIRE(value.as_integer().has_value());
+        REQUIRE(*value.as_integer() == 100);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("cross_val: qcbor-c→qcborpp uri", "[cross_validation]") {
