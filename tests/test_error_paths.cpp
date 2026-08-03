@@ -130,18 +130,35 @@ TEST_CASE("error: dynamic double array() throws", "[error_paths]") {
 // ══════════════════════════════════════════════════════════════════════════
 
 TEST_CASE("error: static deep nesting rejected", "[error_paths]") {
+    // QCBOR_MAX_ARRAY_NESTING1 = 15, so 15 opens is OK,
+    // but the 16th open exceeds the limit and must throw.
     uint8_t buf[16384];
     encoder enc(byte_span{buf, sizeof(buf)});
-    // QCBOR default nesting limit is 10; but some builds may use higher.
-    // Open up to 15 levels; if 15 succeeds, give up (build-specific).
-    bool threw = false;
+    for (int i = 0; i < 15; ++i) enc.open_array();
+    bool caught = false;
     try {
-        for (int i = 0; i < 15; ++i) enc.open_array();
-    } catch (const error&) {
-        threw = true;
+        enc.open_array();
+    } catch (const error& e) {
+        REQUIRE(e.code() == errc::array_nesting_too_deep);
+        caught = true;
     }
-    // At least verify no crash
-    REQUIRE((threw || true));
+    REQUIRE(caught);
+}
+
+TEST_CASE("error: dynamic deep nesting rejected at finish", "[error_paths]") {
+    // Dynamic encoder defers QCBOR calls to finish(); nesting overflow
+    // surfaces only when finish() replays the recorded open_array() ops.
+    dynamic_encoder denc;
+    for (int i = 0; i < 15; ++i) denc.open_array();
+    bool caught = false;
+    try {
+        denc.open_array();
+        denc.finish();
+    } catch (const error& e) {
+        REQUIRE(e.code() == errc::array_nesting_too_deep);
+        caught = true;
+    }
+    REQUIRE(caught);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -234,8 +251,8 @@ TEST_CASE("error: array_scope next beyond end", "[error_paths]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE_NOTHROW(int64_t(a.next()) == 1);
-    REQUIRE_NOTHROW(int64_t(a.next()) == 2);
+    REQUIRE(int64_t(a.next()) == 1);
+    REQUIRE(int64_t(a.next()) == 2);
     REQUIRE_THROWS_AS(a.next(), error);
 }
 
@@ -349,20 +366,16 @@ TEST_CASE("error: success error_code comparison", "[error_paths]") {
 // ══════════════════════════════════════════════════════════════════════════
 
 TEST_CASE("error: decoder extra bytes after root item", "[error_paths]") {
-    // Encode [1, 2, 3], then decode... but only consume part at top level
-    // This is inherently hard to trigger since decoder auto-enters the root
-    // container. Instead, verify that finishing a fully-consumed decoder
-    // returns success.
-    uint8_t buf[128];
-    encoder enc(byte_span{buf, sizeof(buf)});
-    enc.open_array(); enc.add_int64(1); enc.close_array();
-    auto data = enc.finish();
-
-    decoder dec(data);
+    // Two top-level integers back-to-back: 0x01 (= 1) followed by 0x02 (= 2).
+    // QCBOR rejects extra bytes after consuming the root item.
+    uint8_t buf[] = {0x01, 0x02};
+    decoder dec(const_byte_span{buf, sizeof(buf)});
     {
-        auto a = dec.array();
-        REQUIRE_NOTHROW(int64_t(a.next()) == 1);
+        auto item = dec.get_next();
+        REQUIRE(item.type == cbor_type::int64);
+        REQUIRE(item.value.int64_val == 1);
     }
     auto ec = dec.finish();
-    REQUIRE(!ec);
+    REQUIRE(ec);
+    REQUIRE(ec == make_error_code(errc::extra_bytes));
 }
