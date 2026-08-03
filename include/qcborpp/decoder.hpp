@@ -1188,12 +1188,17 @@ inline map_scope::~map_scope() {
 }
 
 inline map_scope::map_scope(map_scope&& o) noexcept
-    : dec_(o.dec_), exited_(o.exited_), last_label_(std::move(o.last_label_)) { o.dec_ = nullptr; }
+    : dec_(o.dec_), exited_(o.exited_), last_label_(std::move(o.last_label_))
+    , cache_(std::move(o.cache_)), int_cache_(std::move(o.int_cache_))
+    , prefetched_(o.prefetched_) { o.dec_ = nullptr; }
 
 inline map_scope& map_scope::operator=(map_scope&& o) noexcept {
     if (this != &o) {
         if (dec_ && !exited_) { try { dec_->exit_map(); } catch (...) {} }
         dec_ = o.dec_; exited_ = o.exited_; last_label_ = std::move(o.last_label_);
+        cache_      = std::move(o.cache_);
+        int_cache_  = std::move(o.int_cache_);
+        prefetched_ = o.prefetched_;
         o.dec_ = nullptr;
     }
     return *this;
