@@ -595,25 +595,26 @@ TEST_CASE("cross_val: qcborpp→qcborpp re-encode nested match", "[cross_validat
 TEST_CASE("cross_val: qcborpp→qcborpp re-encode tagged value match", "[cross_validation]") {
     uint8_t buf1[256];
     encoder enc1(byte_span{buf1, sizeof(buf1)});
-    {
-        auto m = enc1.map();
-        enc1.add_tag(1);
-        m["epoch"] = 1234567890;
-    }
+    // Tag must attach to VALUE between key and value
+    enc1.open_map();
+    enc1.add_text("epoch");
+    enc1.add_tag(1);
+    enc1.add_int64(1234567890);
+    enc1.close_map();
     auto original = enc1.finish();
 
     decoder dec(original);
     auto m = dec.map();
-    int64_t epoch = int64_t(m["epoch"]);
+    int64_t epoch = m["epoch"].as_date_epoch();
     dec.finish();
 
     uint8_t buf2[256];
     encoder enc2(byte_span{buf2, sizeof(buf2)});
-    {
-        auto m2 = enc2.map();
-        enc2.add_tag(1);
-        m2["epoch"] = epoch;
-    }
+    enc2.open_map();
+    enc2.add_text("epoch");
+    enc2.add_tag(1);
+    enc2.add_int64(epoch);
+    enc2.close_map();
     auto re_encoded = enc2.finish();
 
     REQUIRE(original.size() == re_encoded.size());

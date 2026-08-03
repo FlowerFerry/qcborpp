@@ -171,17 +171,19 @@ TEST_CASE("static_encoder: add_undef", "[static_encoder]") {
 TEST_CASE("static_encoder: add_tag roundtrip", "[static_encoder]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
-    // Encode a tag + value inside a map so we can verify the value
-    {
-        auto m = enc.map();
-        enc.add_tag(1);
-        m["epoch"] = 1234567890;
-    }
+    // Tag must attach to VALUE, not KEY
+    // Use low-level API: key → tag → value
+    enc.open_map();
+    enc.add_text("epoch");
+    enc.add_tag(1);
+    enc.add_int64(1234567890);
+    enc.close_map();
     auto data = enc.finish();
 
+    // Verify with independent parsing
     decoder dec(data);
     auto m = dec.map();
-    REQUIRE(int64_t(m["epoch"]) == 1234567890);
+    REQUIRE(m["epoch"].as_date_epoch() == 1234567890);
     dec.finish();
 }
 
