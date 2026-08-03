@@ -33,34 +33,39 @@ using namespace qcborpp;
 TEST_CASE("error: static close_map without open_map", "[error_paths]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
-    REQUIRE_THROWS_AS(enc.close_map(), error);
+    try { enc.close_map(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::too_many_closes); }
 }
 
 TEST_CASE("error: static close_array without open_array", "[error_paths]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
-    REQUIRE_THROWS_AS(enc.close_array(), error);
+    try { enc.close_array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::too_many_closes); }
 }
 
 TEST_CASE("error: static close_array when map open", "[error_paths]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_map();
-    REQUIRE_THROWS_AS(enc.close_array(), error);
+    try { enc.close_array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 TEST_CASE("error: static close_map when array open", "[error_paths]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
-    REQUIRE_THROWS_AS(enc.close_map(), error);
+    try { enc.close_map(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 TEST_CASE("error: static too many close_array", "[error_paths]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array(); enc.close_array();
-    REQUIRE_THROWS_AS(enc.close_array(), error);
+    try { enc.close_array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::too_many_closes); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -72,7 +77,8 @@ TEST_CASE("error: static finish twice throws", "[error_paths]") {
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array(); enc.close_array();
     enc.finish();
-    REQUIRE_THROWS_AS(enc.finish(), error);
+    try { enc.finish(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::buffer_too_large); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -85,14 +91,16 @@ TEST_CASE("error: static finish with map still open", "[error_paths]") {
     enc.open_map();
     enc.add_int64(1);
     // missing close_map → finish() throws array_or_map_still_open
-    REQUIRE_THROWS_AS(enc.finish(), error);
+    try { enc.finish(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::array_or_map_still_open); }
 }
 
 TEST_CASE("error: dynamic finish with array still open", "[error_paths]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_int64(1);
-    REQUIRE_THROWS_AS(enc.finish(), error);
+    try { enc.finish(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::array_or_map_still_open); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -103,26 +111,30 @@ TEST_CASE("error: static double map() throws", "[error_paths]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.map();
-    REQUIRE_THROWS_AS(enc.map(), error);
+    try { enc.map(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 TEST_CASE("error: static double array() throws", "[error_paths]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.array();
-    REQUIRE_THROWS_AS(enc.array(), error);
+    try { enc.array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 TEST_CASE("error: dynamic double map() throws", "[error_paths]") {
     dynamic_encoder enc;
     enc.map();
-    REQUIRE_THROWS_AS(enc.map(), error);
+    try { enc.map(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 TEST_CASE("error: dynamic double array() throws", "[error_paths]") {
     dynamic_encoder enc;
     enc.array();
-    REQUIRE_THROWS_AS(enc.array(), error);
+    try { enc.array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -168,25 +180,29 @@ TEST_CASE("error: dynamic deep nesting rejected at finish", "[error_paths]") {
 TEST_CASE("error: decoder empty input", "[error_paths]") {
     uint8_t buf[1] = {};
     decoder d(const_byte_span{buf, 0});
-    REQUIRE_THROWS_AS(d.map(), error);
+    try { d.map(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::no_more_items); }
 }
 
 TEST_CASE("error: decoder truncated int", "[error_paths]") {
     uint8_t buf[1] = {0x18};
     decoder dec(const_byte_span{buf, 1});
-    REQUIRE_THROWS_AS(dec.array(), error);
+    try { dec.array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::hit_end); }
 }
 
 TEST_CASE("error: decoder truncated string", "[error_paths]") {
     uint8_t buf[2] = {0x62, 0x41};
     decoder dec(const_byte_span{buf, 2});
-    REQUIRE_THROWS_AS(dec.array(), error);
+    try { dec.array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::hit_end); }
 }
 
 TEST_CASE("error: decoder garbage byte", "[error_paths]") {
     uint8_t buf[1] = {0xFF};
     decoder dec(const_byte_span{buf, 1});
-    REQUIRE_THROWS_AS(dec.array(), error);
+    try { dec.array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::bad_break); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -204,7 +220,8 @@ TEST_CASE("error: decoder double map() throws", "[error_paths]") {
 
     decoder dec(data);
     dec.map();
-    REQUIRE_THROWS_AS(dec.map(), error);
+    try { dec.map(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 TEST_CASE("error: decoder double array() throws", "[error_paths]") {
@@ -215,7 +232,8 @@ TEST_CASE("error: decoder double array() throws", "[error_paths]") {
 
     decoder dec(data);
     dec.array();
-    REQUIRE_THROWS_AS(dec.array(), error);
+    try { dec.array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -233,7 +251,8 @@ TEST_CASE("error: map_scope missing key throws label_not_found", "[error_paths]"
 
     decoder dec(data);
     auto m = dec.map();
-    REQUIRE_THROWS_AS(int64_t(m["missing"]), error);
+    try { int64_t v = m["missing"]; (void)v; REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::label_not_found); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -253,7 +272,8 @@ TEST_CASE("error: array_scope next beyond end", "[error_paths]") {
     auto a = dec.array();
     REQUIRE(int64_t(a.next()) == 1);
     REQUIRE(int64_t(a.next()) == 2);
-    REQUIRE_THROWS_AS(a.next(), error);
+    try { a.next(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::no_more_items); }
 }
 
 TEST_CASE("error: array_scope next on empty array", "[error_paths]") {
@@ -264,7 +284,8 @@ TEST_CASE("error: array_scope next on empty array", "[error_paths]") {
 
     decoder dec(data);
     auto a = dec.array();
-    REQUIRE_THROWS_AS(a.next(), error);
+    try { a.next(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::no_more_items); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -280,7 +301,8 @@ TEST_CASE("error: map_builder encoder map() after builder closes", "[error_paths
     }
     // Builder closed, encoder's context is back to neutral.
     // Calling map() again should fail (top_set_ is true).
-    REQUIRE_THROWS_AS(enc.map(), error);
+    try { enc.map(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::close_mismatch); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -294,7 +316,8 @@ TEST_CASE("error: static close_array after finish throws", "[error_paths]") {
     enc.add_int64(1);
     enc.close_array();
     enc.finish();
-    REQUIRE_THROWS_AS(enc.close_array(), error);
+    try { enc.close_array(); REQUIRE(false); }
+    catch (const error& e) { REQUIRE(e.code() == errc::too_many_closes); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
