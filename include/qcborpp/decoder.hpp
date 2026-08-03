@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <chrono>
 #include <optional>
+#include <cmath>
 
 namespace qcborpp {
 
@@ -420,43 +421,21 @@ public:
      * @param  def    Default value returned when key is absent.
      * @return The value associated with key, or def.
      */
+    /** @copydoc get_or(std::string_view,T) const */
     template<typename T>
-    T get_or(std::string_view key, T def) const {
-        auto& self = const_cast<map_scope&>(*this);
-        return self[key].get_or(std::move(def));
-    }
+    T get_or(std::string_view key, T def) const;
 
-    /**
-     * @brief  Look up integer key and return its value, or a default.
-     */
+    /** @copydoc get_or(std::string_view,T) const */
     template<typename T>
-    T get_or(int64_t key, T def) const {
-        auto& self = const_cast<map_scope&>(*this);
-        return self[key].get_or(std::move(def));
-    }
+    T get_or(int64_t key, T def) const;
 
-    // ── try_get — std::optional access directly on map_scope ──
-
-    /**
-     * @brief  Look up a string key and return std::optional<T>.
-     *
-     * Syntax sugar: m.try_get<int64_t>("count") instead of m["count"].try_get<int64_t>().
-     * Returns std::nullopt if the key is absent or the type does not match.
-     */
+    /** @copydoc try_get(std::string_view) const noexcept */
     template<typename T>
-    std::optional<T> try_get(std::string_view key) const noexcept {
-        auto& self = const_cast<map_scope&>(*this);
-        return self[key].try_get<T>();
-    }
+    std::optional<T> try_get(std::string_view key) const noexcept;
 
-    /**
-     * @brief  Look up an integer key and return std::optional<T>.
-     */
+    /** @copydoc try_get(std::string_view) const noexcept */
     template<typename T>
-    std::optional<T> try_get(int64_t key) const noexcept {
-        auto& self = const_cast<map_scope&>(*this);
-        return self[key].try_get<T>();
-    }
+    std::optional<T> try_get(int64_t key) const noexcept;
 
     /**
      * @brief  Check whether a key exists in this map.
@@ -675,7 +654,7 @@ public:
      */
     template<typename T>
     std::optional<T> try_get() const noexcept {
-        try { return std::optional<T>(operator T()); }
+        try { return std::optional<T>(static_cast<const item_proxy&>(*this)); }
         catch (...) { return std::nullopt; }
     }
 
@@ -2048,6 +2027,34 @@ inline std::error_code decoder::impl_get_items_in_map(
     err = QCBORDecode_GetError(&ctx_);
     return err == QCBOR_SUCCESS ? std::error_code{}
                                  : make_error_code(static_cast<errc>(err));
+}
+
+// ============================================================================
+// map_scope template members (defined after item_proxy for GCC completeness)
+// ============================================================================
+
+template<typename T>
+inline T map_scope::get_or(std::string_view key, T def) const {
+    auto& self = const_cast<map_scope&>(*this);
+    return self[key].get_or(std::move(def));
+}
+
+template<typename T>
+inline T map_scope::get_or(int64_t key, T def) const {
+    auto& self = const_cast<map_scope&>(*this);
+    return self[key].get_or(std::move(def));
+}
+
+template<typename T>
+inline std::optional<T> map_scope::try_get(std::string_view key) const noexcept {
+    auto& self = const_cast<map_scope&>(*this);
+    return self[key].template try_get<T>();
+}
+
+template<typename T>
+inline std::optional<T> map_scope::try_get(int64_t key) const noexcept {
+    auto& self = const_cast<map_scope&>(*this);
+    return self[key].template try_get<T>();
 }
 
 } // namespace qcborpp
