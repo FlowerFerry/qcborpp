@@ -21,8 +21,46 @@ using namespace std::chrono_literals;
 // decode_mode::map_strings_only / map_as_array
 // ============================================================================
 
-TEST_CASE("decoder: map_strings_only rejects int keys", "[decoder][coverage3]") {
-    // Build {1: 42, "s": "hello"}
+TEST_CASE("decoder: map_strings_only succeeds with all-string keys", "[decoder][decode_mode]") {
+    // Build {"a": 1, "b": -2, "c": "hello"}
+    dynamic_encoder enc;
+    {
+        auto m = enc.map();
+        m["a"] = 1;
+        m["b"] = -2;
+        m["c"] = "hello";
+    }
+    auto data = enc.finish();
+
+    // map_strings_only mode: prefetch iterates the map; all keys are
+    // text strings so no error is raised.
+    decoder dec(data, decode_mode::map_strings_only);
+    REQUIRE(dec.is_map());
+
+    {
+        auto m = dec.map();
+        REQUIRE(m.contains("a"));
+        REQUIRE(m.contains("b"));
+        REQUIRE(m.contains("c"));
+
+        auto va = m["a"];
+        REQUIRE(va.type() == cbor_type::int64);
+        REQUIRE(va.get_int64() == 1);
+
+        auto vb = m["b"];
+        REQUIRE(vb.type() == cbor_type::int64);
+        REQUIRE(vb.get_int64() == -2);
+
+        auto vc = m["c"];
+        REQUIRE(vc.type() == cbor_type::text_string);
+        REQUIRE(vc.as_string() == "hello");
+    }
+
+    REQUIRE_FALSE(dec.finish());
+}
+
+TEST_CASE("decoder: map_strings_only rejects int keys", "[decoder][decode_mode]") {
+    // Build {1: 42, "s": "hello"} -- int key should be rejected
     dynamic_encoder enc;
     {
         auto m = enc.map();
@@ -31,14 +69,20 @@ TEST_CASE("decoder: map_strings_only rejects int keys", "[decoder][coverage3]") 
     }
     auto data = enc.finish();
 
-    // With map_strings_only, the decoder is constructed in a mode that
-    // expects string-only keys. Verify construction and type detection.
+    // map_strings_only: prefetch encounters the int label → QCBOR
+    // returns QCBOR_ERR_MAP_LABEL_TYPE → check_err() throws.
     decoder dec(data, decode_mode::map_strings_only);
-    CHECK(dec.is_map());
-    CHECK_FALSE(dec.is_array());
+    REQUIRE(dec.is_map());
+
+    try {
+        dec.map();
+        FAIL("Expected map_strings_only to reject int key");
+    } catch (const qcborpp::error& e) {
+        REQUIRE(e.code() == errc::map_label_type);
+    }
 }
 
-TEST_CASE("decoder: map_as_array decodes map as sequential array", "[decoder][coverage3]") {
+TEST_CASE("decoder: map_as_array decodes map as flat key-value sequence", "[decoder][decode_mode]") {
     // Build {"a": 1, "b": 2}
     dynamic_encoder enc;
     {
@@ -48,11 +92,35 @@ TEST_CASE("decoder: map_as_array decodes map as sequential array", "[decoder][co
     }
     auto data = enc.finish();
 
-    // With map_as_array mode, QCBOR re-interprets the map as an array
-    // of alternating key-value items. Verify construction and type detection.
+    // map_as_array mode: QCBOR reports the map as a special
+    // MAP_AS_ARRAY type, then alternates key-value items without
+    // labels.  decoder::map() / decoder::array() both fail here
+    // (EnterBoundedMapOrArray checks for MAP/ARRAY type, not
+    // MAP_AS_ARRAY), so use get_next() directly.
     decoder dec(data, decode_mode::map_as_array);
-    CHECK(dec.is_map());
-    CHECK_FALSE(dec.is_array());
+
+    // First item: the map-as-array wrapper (count = 2 × pairs = 4)
+    auto header = dec.get_next();
+    REQUIRE(header.type == cbor_type::map_as_array);
+
+    // Alternating key-value pairs
+    auto key1 = dec.get_next();
+    REQUIRE(key1.type == cbor_type::text_string);
+    REQUIRE(key1.value.text == "a");
+
+    auto val1 = dec.get_next();
+    REQUIRE(val1.type == cbor_type::int64);
+    REQUIRE(val1.value.int64_val == 1);
+
+    auto key2 = dec.get_next();
+    REQUIRE(key2.type == cbor_type::text_string);
+    REQUIRE(key2.value.text == "b");
+
+    auto val2 = dec.get_next();
+    REQUIRE(val2.type == cbor_type::int64);
+    REQUIRE(val2.value.int64_val == 2);
+
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ============================================================================
