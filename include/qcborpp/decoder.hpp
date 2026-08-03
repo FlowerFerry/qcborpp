@@ -857,6 +857,37 @@ public:
      */
     bool is_tag() const;
 
+    // ── lifecycle observability ──
+
+    /**
+     * @brief  Check whether the item has already been decoded and cached.
+     *
+     * Returns true if this proxy holds a cached copy of the CBOR item
+     * (via prefetch or explicit resolve()). When true, the proxy is
+     * safe to use even after its parent scope has been destroyed.
+     *
+     * When false, the proxy has a lazy label (from operator[]) or is
+     * a bare container proxy (from array_scope::next()). Access methods
+     * will attempt on-demand decode, which may fail if the parent
+     * decoder scope has been exited.
+     */
+    bool is_resolved() const noexcept;
+
+    /**
+     * @brief  Force immediate decoding of a lazy proxy.
+     *
+     * If is_resolved() is already true, this is a no-op.
+     *
+     * For lazy proxies (created with force_prefetch=false), this
+     * decodes the item via the decoder and populates the cache.
+     * After resolve() returns successfully, is_resolved() == true
+     * and the proxy is independent of its parent scope.
+     *
+     * @throws error if the decoder is not in the expected map/array
+     *         context or the item cannot be decoded.
+     */
+    void resolve();
+
     // ── tagged getters ──
 
     /**
@@ -1869,6 +1900,32 @@ inline item_proxy item_proxy::operator[](int64_t subkey) {
 
 inline item_proxy item_proxy::operator[](const char* subkey) {
     return (*this)[std::string_view(subkey)];
+}
+
+// ── item_proxy lifecycle observability ──
+
+inline bool item_proxy::is_resolved() const noexcept {
+    return has_cached_;
+}
+
+inline void item_proxy::resolve() {
+    if (has_cached_) return;
+
+    QCBORItem item;
+    if (is_int_label_) {
+        QCBORDecode_GetItemInMapN(dec_->raw_ctx(), int_label_,
+                                  QCBOR_TYPE_ANY, &item);
+        dec_->auto_rewind_check();
+    } else if (!str_label_.empty()) {
+        QCBORDecode_GetItemInMapSZ(dec_->raw_ctx(), str_label_.c_str(),
+                                   QCBOR_TYPE_ANY, &item);
+        dec_->auto_rewind_check();
+    } else {
+        // Bare proxy — nothing to resolve (will fail on access)
+        return;
+    }
+    cached_ = dec_->convert_item(item);
+    has_cached_ = true;
 }
 
 // ============================================================================

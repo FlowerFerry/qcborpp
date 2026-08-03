@@ -693,6 +693,70 @@ TEST_CASE("item_proxy: after map_scope destroyed, as_map throws map_not_entered"
     CHECK_THROWS_AS(it.as_map(), qcborpp::error);
 }
 
+TEST_CASE("item_proxy: is_resolved() after prefetch returns true", "[decoder][scope_lifetime]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["key"] = 42;
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    item_proxy it([&]() {
+        auto m = dec.map();
+        return m["key"];
+    }());  // m destroyed — prefetch=true, cached
+
+    CHECK(it.is_resolved() == true);
+    CHECK(it.get_or(-1) == 42);      // still accessible
+}
+
+TEST_CASE("item_proxy: is_resolved() for lazy proxy returns false", "[decoder][scope_lifetime]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["key"] = 42;
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    dec.set_force_prefetch(false);
+
+    item_proxy it([&]() {
+        auto m = dec.map();
+        return m["key"];
+    }());  // m destroyed — lazy proxy, no cache
+
+    CHECK(it.is_resolved() == false);
+}
+
+TEST_CASE("item_proxy: resolve() makes lazy proxy accessible after scope exit", "[decoder][scope_lifetime]") {
+    uint8_t buf[128];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["key"] = 42;
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    dec.set_force_prefetch(false);
+
+    // Resolve inside scope — caches the value
+    item_proxy it([&]() {
+        auto m = dec.map();
+        auto p = m["key"];
+        p.resolve();
+        CHECK(p.is_resolved() == true);
+        return p;
+    }());  // m destroyed
+
+    CHECK(it.is_resolved() == true);
+    CHECK(it.get_or(-1) == 42);      // still works after scope exit
+}
+
 // ============================================================================
 // Encoding failure → corrupt data fed to decoder
 // ============================================================================
