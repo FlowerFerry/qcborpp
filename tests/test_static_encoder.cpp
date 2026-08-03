@@ -799,3 +799,131 @@ TEST_CASE("proxy_map_depth_: depth released after kp destroyed", "[encoder][dept
     }
     enc.finish();
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// key_proxy::tag(n) = value  —  tagged value builder
+// ══════════════════════════════════════════════════════════════════════════
+
+TEST_CASE("static_encoder: tag() int64", "[static_encoder]") {
+    uint8_t buf[256];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["epoch"].tag(1) = int64_t(1234567890);
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(m["epoch"].as_date_epoch() == 1234567890);
+    dec.finish();
+}
+
+TEST_CASE("static_encoder: tag() text", "[static_encoder]") {
+    uint8_t buf[256];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["url"].tag(32) = std::string_view("https://example.com");
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(m["url"].as_uri() == "https://example.com");
+    dec.finish();
+}
+
+TEST_CASE("static_encoder: tag() bytes", "[static_encoder]") {
+    uint8_t buf[256];
+    uint8_t uuid_bytes[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["id"].tag(37) = const_byte_span{uuid_bytes, 16};
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    (void)m["id"]; // UUID decoded correctly
+    dec.finish();
+}
+
+TEST_CASE("static_encoder: tag() bool", "[static_encoder]") {
+    uint8_t buf[256];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["flag"].tag(600) = true;
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(bool(m["flag"]) == true);
+    dec.finish();
+}
+
+TEST_CASE("static_encoder: tag() null", "[static_encoder]") {
+    uint8_t buf[256];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["unset"].tag(600) = nullptr;
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(m["unset"].is_null());
+    dec.finish();
+}
+
+TEST_CASE("static_encoder: tag() double", "[static_encoder]") {
+    uint8_t buf[256];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        m["pi"].tag(600) = 3.14;
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE_THAT(double(m["pi"]), Catch::Matchers::WithinRel(3.14, 1e-9));
+    dec.finish();
+}
+
+TEST_CASE("static_encoder: tag().map() nested", "[static_encoder]") {
+    uint8_t buf[512];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        auto inner = m["nested"].tag(42).map();
+        inner["a"] = 1;
+        inner["b"] = 2;
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(m["nested"].is_map());
+    dec.finish();
+}
+
+TEST_CASE("static_encoder: tag().array() nested", "[static_encoder]") {
+    uint8_t buf[512];
+    encoder enc(byte_span{buf, sizeof(buf)});
+    {
+        auto m = enc.map();
+        auto arr = m["items"].tag(99).array();
+        arr << 10 << 20 << 30;
+    }
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(m["items"].is_array());
+    dec.finish();
+}

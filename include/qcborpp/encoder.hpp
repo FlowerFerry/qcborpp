@@ -22,6 +22,7 @@ namespace qcborpp {
 // Forward declarations
 class encoder;
 template<typename Enc> class basic_key_proxy;
+template<typename Enc> class basic_tagged_key_proxy;
 template<typename Enc> class basic_map_builder;
 template<typename Enc> class basic_array_builder;
 
@@ -231,6 +232,38 @@ inline void record_bytes_ref(std::vector<uint8_t>& buf, const_byte_span b) {
 } // namespace detail
 
 // ============================================================================
+// basic_tagged_key_proxy<Enc> -- returned by key_proxy::tag(n)
+// ============================================================================
+//
+// Holds a tag number and emits tag → value on operator= or .map()/.array().
+
+template<typename Enc>
+class basic_tagged_key_proxy {
+    friend class basic_key_proxy<Enc>;
+    Enc* enc_;
+    uint64_t tag_;
+
+    explicit basic_tagged_key_proxy(Enc& e, uint64_t tag) noexcept
+        : enc_(&e), tag_(tag) {}
+
+public:
+    void operator=(int64_t v)          { enc_->add_tag(tag_); enc_->add_int64(v); }
+    void operator=(int v)              { enc_->add_tag(tag_); enc_->add_int64(static_cast<int64_t>(v)); }
+    void operator=(unsigned int v)     { enc_->add_tag(tag_); enc_->add_uint64(static_cast<uint64_t>(v)); }
+    void operator=(uint64_t v)         { enc_->add_tag(tag_); enc_->add_uint64(v); }
+    void operator=(std::string_view v) { enc_->add_tag(tag_); enc_->add_text(v); }
+    void operator=(const char* v)      { enc_->add_tag(tag_); enc_->add_text(v); }
+    void operator=(double v)           { enc_->add_tag(tag_); enc_->add_double(v); }
+    void operator=(float v)            { enc_->add_tag(tag_); enc_->add_double(static_cast<double>(v)); }
+    void operator=(bool v)             { enc_->add_tag(tag_); enc_->add_bool(v); }
+    void operator=(std::nullptr_t)     { enc_->add_tag(tag_); enc_->add_null(); }
+    void operator=(const_byte_span v)  { enc_->add_tag(tag_); enc_->add_bytes(v); }
+
+    basic_map_builder<Enc> map()       { enc_->add_tag(tag_); enc_->open_map();  return basic_map_builder<Enc>{*enc_}; }
+    basic_array_builder<Enc> array()   { enc_->add_tag(tag_); enc_->open_array();return basic_array_builder<Enc>{*enc_}; }
+};
+
+// ============================================================================
 // basic_key_proxy<Enc> -- DECLARATION ONLY (bodies after encoder)
 // ============================================================================
 //
@@ -284,6 +317,12 @@ public:
     template<typename Rep, typename Period>
     void operator=(std::chrono::duration<Rep, Period> d);
 
+    /** @brief  Wrap the next value with a CBOR tag. Use as: m["key"].tag(1) = 1234; */
+    basic_tagged_key_proxy<Enc> tag(uint64_t n) {
+        close_if_owns();
+        return basic_tagged_key_proxy<Enc>(*enc_, n);
+    }
+
     /** @brief  Open a nested map as the value for this key. */
     basic_map_builder<Enc>   map();
     /** @brief  Open a nested array as the value for this key. */
@@ -308,6 +347,7 @@ class basic_map_builder {
     friend class encoder;
     friend class dynamic_encoder;
     friend class basic_key_proxy<Enc>;
+    friend class basic_tagged_key_proxy<Enc>;
     friend class basic_array_builder<Enc>;
     Enc* enc_;
     bool closed_ = false;
@@ -364,6 +404,7 @@ class basic_array_builder {
     friend class encoder;
     friend class dynamic_encoder;
     friend class basic_key_proxy<Enc>;
+    friend class basic_tagged_key_proxy<Enc>;
     friend class basic_map_builder<Enc>;
     Enc* enc_;
     bool closed_ = false;
