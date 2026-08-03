@@ -319,3 +319,83 @@ TEST_CASE("decoder-tagged: auto_rewind off as_map error poison", "[tagged]") {
     // Next lookup sees the stale error
     CHECK(m[1].get_or(-3) == -3);  // would succeed with auto_rewind=true
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// tag_number() — read actual tag number
+// ═══════════════════════════════════════════════════════════════════
+
+TEST_CASE("decoder-tagged: tag_number returns correct tag", "[tagged]") {
+    dynamic_encoder enc;
+    enc.open_map();
+    enc.add_text("epoch");
+    enc.add_tag(1);
+    enc.add_int64(1700000000);
+    enc.close_map();
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(m["epoch"].is_tag());
+    auto tn = m["epoch"].tag_number();
+    REQUIRE(tn.has_value());
+    CHECK(*tn == 1);
+    CHECK(m["epoch"].as_date_epoch() == 1700000000);
+}
+
+TEST_CASE("decoder-tagged: tag_number for untagged returns nullopt", "[tagged]") {
+    dynamic_encoder enc;
+    enc.open_map();
+    enc.add_text("plain");
+    enc.add_int64(42);
+    enc.close_map();
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    REQUIRE(!m["plain"].is_tag());
+    auto tn = m["plain"].tag_number();
+    CHECK(!tn.has_value());
+    CHECK(m["plain"].as_int64() == 42);
+}
+
+TEST_CASE("decoder-tagged: tag_number multiple tags in same map", "[tagged]") {
+    dynamic_encoder enc;
+    enc.open_map();
+    enc.add_text("uri");
+    enc.add_tag(32);
+    enc.add_text("https://example.com");
+    enc.add_text("uuid");
+    enc.add_tag(37);
+    enc.add_bytes(const_byte_span{(const uint8_t*)"0123456789abcdef", 16});
+    enc.add_text("epoch");
+    enc.add_tag(1);
+    enc.add_int64(1234567890);
+    enc.close_map();
+    auto data = enc.finish();
+
+    decoder dec(data);
+    auto m = dec.map();
+    CHECK(m["uri"].tag_number() == std::optional<uint64_t>(32));
+    CHECK(m["uuid"].tag_number() == std::optional<uint64_t>(37));
+    CHECK(m["epoch"].tag_number() == std::optional<uint64_t>(1));
+}
+
+TEST_CASE("decoder-tagged: tag_number with prefetch=false and resolve", "[tagged]") {
+    dynamic_encoder enc;
+    enc.open_map();
+    enc.add_text("epoch");
+    enc.add_tag(1);
+    enc.add_int64(999999999);
+    enc.close_map();
+    auto data = enc.finish();
+
+    decoder dec(data);
+    dec.set_force_prefetch(false);
+    auto m = dec.map();
+    auto p = m["epoch"];
+    // Lazy - need resolve to read tag number
+    auto tn = p.tag_number();
+    REQUIRE(tn.has_value());
+    CHECK(*tn == 1);
+    CHECK(p.is_resolved() == true); // tag_number() triggered resolve()
+}

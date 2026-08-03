@@ -888,6 +888,21 @@ public:
      */
     void resolve();
 
+    /**
+     * @brief  Return the tag number if this item is tagged.
+     *
+     * Returns the outermost CBOR tag number (e.g. tag 1 for epoch dates,
+     * tag 32 for URIs). For untagged items, returns std::nullopt.
+     *
+     * When this proxy is lazy (is_resolved() == false), resolve() is
+     * called first to populate the cache. If resolution fails (e.g.
+     * parent scope was already destroyed), the error propagates.
+     *
+     * @return The tag number, or std::nullopt if untagged.
+     * @throws error if lazy resolution fails.
+     */
+    std::optional<uint64_t> tag_number();
+
     // ── tagged getters ──
 
     /**
@@ -1877,6 +1892,34 @@ inline bool item_proxy::is_tag() const {
     // wrapped_cbor (36), text-tag group (44-49), binary_mime/days (76-78)
     return (t >= 9 && t <= 12) || (t >= 14 && t <= 19)
         || t == 36 || (t >= 44 && t <= 49) || (t >= 76 && t <= 78);
+}
+
+inline std::optional<uint64_t> item_proxy::tag_number() {
+    if (!has_cached_)
+        resolve(); // may throw if out of scope
+    switch (cached_.type) {
+    case cbor_type::date_string:            return std::optional<uint64_t>(0);
+    case cbor_type::date_epoch:            return std::optional<uint64_t>(1);
+    case cbor_type::pos_bignum:            return std::optional<uint64_t>(2);
+    case cbor_type::neg_bignum:            return std::optional<uint64_t>(3);
+    case cbor_type::decimal_fraction:
+    case cbor_type::decimal_fraction_pos_bignum:
+    case cbor_type::decimal_fraction_neg_bignum: return std::optional<uint64_t>(4);
+    case cbor_type::bigfloat:
+    case cbor_type::bigfloat_pos_bignum:
+    case cbor_type::bigfloat_neg_bignum:        return std::optional<uint64_t>(5);
+    case cbor_type::wrapped_cbor:          return std::optional<uint64_t>(24);
+    case cbor_type::uri:                   return std::optional<uint64_t>(32);
+    case cbor_type::base64url:             return std::optional<uint64_t>(33);
+    case cbor_type::base64:                return std::optional<uint64_t>(34);
+    case cbor_type::regex:                 return std::optional<uint64_t>(35);
+    case cbor_type::mime:
+    case cbor_type::binary_mime:           return std::optional<uint64_t>(36);
+    case cbor_type::uuid:                  return std::optional<uint64_t>(37);
+    case cbor_type::days_epoch:            return std::optional<uint64_t>(100);
+    case cbor_type::days_string:           return std::optional<uint64_t>(1004);
+    default: return std::nullopt;
+    }
 }
 
 // ── item_proxy nested key chaining ──
