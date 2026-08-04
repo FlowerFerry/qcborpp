@@ -21,6 +21,84 @@ qcborpp provides modern C++ idioms — RAII, `operator[]`, method chaining, exce
 - **All QCBOR types** — int, uint, text, bytes, double, float, bool, null, undef, tags, bignum, decimal fraction, bigfloat, URI, base64, regex, MIME, UUID, epoch dates
 - **Low-level access** — direct QCBOR C API available when needed
 
+## Scope & Lifetime
+
+`item_proxy` objects returned by `map_scope::operator[]` and `array_scope::next()` have
+a well-defined lifetime contract that depends on the decoder's prefetch mode.
+
+### Prefetch mode (default: `force_prefetch=true`)
+
+When `force_prefetch` is `true` (the default), `dec.map()` and `as_map()` automatically
+prefetch all map entries into an internal cache.  `operator[]` returns an `item_proxy`
+whose value is fully cached and **remains valid after the parent `map_scope` is destroyed**.
+
+```cpp
+decoder dec(data);
+item_proxy p([&]() {
+    auto m = dec.map();       // prefetches entire map
+    return m["key"];           // cached hit — value is 42
+}());                          // ← map_scope destroyed here
+
+int64_t v = p.get_or(-1);     // ✓ OK — reads cached value → 42
+p.is_resolved();               // ✓ true
+p.as_int64();                  // ✓ OK — same cache
+```
+
+### Non-prefetch mode (`force_prefetch=false`)
+
+When `force_prefetch` is `false`, `operator[]` returns a **label-only** `item_proxy`
+with no cached value.  After the parent `map_scope` is destroyed, any access that
+requires QCBOR context (e.g. `as_int64()`, `as_map()`) **throws `errc::map_not_entered`**
+because the decoder is no longer inside a map.  `is_resolved()` returns `false`.
+
+```cpp
+decoder dec(data);
+dec.set_force_prefetch(false);
+item_proxy p([&]() {
+    auto m = dec.map();        // no prefetch
+    return m["key"];           // label-only proxy
+}());                          // ← map_scope destroyed
+
+p.is_resolved();               // false
+p.get_or(-1);                  // ✗ throws map_not_entered (lazy lookup fails)
+p.as_map();                    // ✗ throws map_not_entered
+```
+
+### Explicit resolve
+
+Call `resolve()` on a lazy `item_proxy` **before** the parent `map_scope` is destroyed
+to cache the value, making it safe to use afterwards:
+
+```cpp
+decoder dec(data);
+dec.set_force_prefetch(false);
+item_proxy p([&]() {
+    auto m = dec.map();
+    auto proxy = m["key"];
+    proxy.resolve();           // force cache now
+    return proxy;
+}());                          // ← map_scope destroyed
+
+p.is_resolved();               // true
+int64_t v = p.get_or(-1);     // ✓ OK — cached by resolve()
+```
+
+### Array scope
+
+`array_scope::next()` always returns a fully-cached `item_proxy` (the value is decoded
+on the spot).  These proxies are safe to use after the `array_scope` is destroyed.
+
+### Summary
+
+| Scenario | After parent scope destroyed | Notes |
+|----------|------------------------------|-------|
+| `array_scope::next()` | ✓ safe | Always cached |
+| `map_scope::operator[]`, prefetch | ✓ safe | Cached by prefetch |
+| `map_scope::operator[]`, non-prefetch | ✗ throws `map_not_entered` | Lazy, no cache |
+| `map_scope::operator[]` + `resolve()` | ✓ safe | Explicit cache before scope exit |
+| `map_scope::find()` | same as `operator[]` | Depends on prefetch mode |
+| `decoder::get_items_in_map()` | ✓ safe | Returns `decoded_item`, not proxy |
+
 ## Dependencies
 
 You must provide QCBOR yourself. qcborpp does not fetch, build, or vendor QCBOR.
