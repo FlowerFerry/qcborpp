@@ -58,6 +58,7 @@ add_executable(qcborpp_tests
     test_coverage_gap4.cpp
     test_wire_format.cpp
     test_numeric_conversion.cpp
+    test_decoder_finish.cpp
     test_main.cpp
 )
 

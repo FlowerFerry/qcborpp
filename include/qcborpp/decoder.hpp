@@ -211,6 +211,30 @@ public:
     }
 
     /**
+     * @brief  Finish decoding and throw on error.
+     *
+     * Calls QCBORDecode_Finish. On success returns silently; on error
+     * throws error with the corresponding errc.
+     *
+     * Equivalent to:
+     * @code
+     *   if (auto ec = dec.finish(); ec)
+     *       throw error(static_cast<errc>(ec.value()));
+     * @endcode
+     *
+     * After this call, the decoder is marked finished.
+     *
+     * @throws error  If the decoder has unconsumed data or is in an error
+     *                state (extra bytes, unterminated container, etc.).
+     */
+    void finish_or_throw() {
+        finished_ = true;
+        QCBORError e = QCBORDecode_Finish(&ctx_);
+        if (e != QCBOR_SUCCESS)
+            throw error(static_cast<errc>(e));
+    }
+
+    /**
      * @brief  Return the current decoder error state without consuming data.
      * @return A zero error_code if no error has occurred.
      */
