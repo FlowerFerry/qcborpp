@@ -784,14 +784,18 @@ TEST_CASE("cross_val: qcbor-c→qcborpp uuid", "[cross_validation]") {
         QCBOREncode_CloseArray(c);
     });
 
-    bool found = false;
-    qcbor_decode_walk(const_byte_span{bytes.data(), bytes.size()}, [&](const QCBORItem& item, int) {
-        if (item.uDataType == QCBOR_TYPE_UUID) {
-            CHECK(item.val.string.len == 16);
-            found = true;
-        }
-    });
-    REQUIRE(found);
+    // Verify via qcborpp decoder — as_uuid() must work in array context.
+    decoder dec(const_byte_span{bytes.data(), bytes.size()});
+    {
+        auto a = dec.array();
+        auto item = a.next();
+        REQUIRE(item.is_tag());
+        auto result = item.as_uuid(tag_requirement::must_be_tag);
+        REQUIRE(result.size() == 16);
+        for (int i = 0; i < 16; ++i)
+            CHECK(result[i] == uuid[i]);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("cross_val: qcbor-c→qcborpp decimal_fraction", "[cross_validation]") {
