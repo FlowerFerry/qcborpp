@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-and-test:
+    name: "${{ matrix.name }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: MSVC 2022
+            os: windows-2022
+            c_compiler: cl
+            cxx_compiler: cl
+            cmake_extra: ""
+          - name: GCC
+            os: ubuntu-24.04
+            c_compiler: gcc
+            cxx_compiler: g++
+            cmake_extra: -G Ninja
+          - name: Clang
+            os: ubuntu-24.04
+            c_compiler: clang
+            cxx_compiler: clang++
+            cmake_extra: -G Ninja
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx_compiler }}
+          -DQCBORPP_BUILD_TESTS=ON
+          ${{ matrix.cmake_extra }}
+
+      - name: Build tests
+        run: cmake --build build --target qcborpp_tests --parallel
+
+      - name: Build benchmark (compile-only)
+        run: cmake --build build --target qcborpp_bench --parallel
+
+      - name: Test
+        run: cd build && ctest --output-on-failure
