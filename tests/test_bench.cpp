@@ -122,9 +122,19 @@ TEST_CASE("bench: encode flat map 100 KV", "[bench][encode]") {
     WARN(r2.name << " : " << r2.us_per_op << " us/op (" << r2.iterations << " iters)");
     WARN(r3.name << " : " << r3.us_per_op << " us/op (" << r3.iterations << " iters)");
 
-    // Static encoder should be within ~2x of raw QCBOR C (same underlying calls)
-    // dynamic_encoder has two-pass overhead — expect slower
-    CHECK(true); // informational only
+    // Correctness preflight: encode once, decode, verify item count
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        bench_encode_flat_map(enc);
+        auto data = enc.finish();
+        decoder dec(data);
+        auto m = dec.map();
+        {
+        CHECK(m.size() == 100);
+        CHECK(m["int_key_0"].as_int64() == 0);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -167,7 +177,22 @@ TEST_CASE("bench: encode array 1000 int64", "[bench][encode]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -241,7 +266,22 @@ TEST_CASE("bench: encode nested 3-level", "[bench][encode]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -284,7 +324,22 @@ TEST_CASE("bench: encode 200 short strings", "[bench][encode]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -387,7 +442,17 @@ TEST_CASE("bench: decode flat map 100 KV", "[bench][decode]") {
 
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
     WARN(r4.name << " : " << r4.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: decode once off the clock, verify known values
+    {
+        decoder dec(const_byte_span{bytes.data(), bytes.size()});
+        auto m = dec.map();
+        {
+        CHECK(m.size() == 100);
+        CHECK(m["int_key_0"].as_int64() == 0);
+        CHECK(m["int_key_49"].as_int64() == 4900);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -446,7 +511,15 @@ TEST_CASE("bench: decode array 1000 int64", "[bench][decode]") {
 
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: decode once, verify count and sample value
+    {
+        decoder dec(const_byte_span{bytes.data(), bytes.size()});
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -526,7 +599,22 @@ TEST_CASE("bench: roundtrip flat map 100 KV", "[bench][roundtrip]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -608,7 +696,22 @@ TEST_CASE("bench: roundtrip array 1000 int64", "[bench][roundtrip]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -651,7 +754,22 @@ TEST_CASE("bench: encode 100 floats", "[bench][encode]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -694,7 +812,22 @@ TEST_CASE("bench: encode 100 doubles no-preferred", "[bench][encode]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -748,7 +881,23 @@ TEST_CASE("bench: encode 1KB bytes x50", "[bench][encode]") {
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
     WARN(r4.name << " : " << r4.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify 50 byte strings of 1KB each
+    {
+        static const std::vector<uint8_t> kB(1024, 0xAB);
+        uint8_t buf[65536];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 50; ++i)
+            enc.add_bytes(const_byte_span{kB.data(), kB.size()});
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 50);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -791,7 +940,22 @@ TEST_CASE("bench: text_ref vs add_text", "[bench][encode]") {
     WARN(r0.name << " : " << r0.us_per_op << " us/op");
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify 200 strings encoded
+    {
+        std::string long_str(256, 'x');
+        dynamic_encoder enc;
+        enc.open_array();
+        for (int i = 0; i < 200; ++i)
+            enc.add_text(long_str);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 200);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -891,7 +1055,23 @@ TEST_CASE("bench: decode nested 3-level", "[bench][decode]") {
 
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: roundtrip 20 byte strings, verify count and size
+    {
+        static const std::vector<uint8_t> kB(1024, 0xCD);
+        uint8_t buf[32768];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 20; ++i)
+            enc.add_bytes(const_byte_span{kB.data(), kB.size()});
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 20);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -974,7 +1154,15 @@ TEST_CASE("bench: decode for_each 50 KV", "[bench][decode]") {
     WARN(r0.name << " : " << r0.us_per_op << " us/op");
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify 50 KV pairs
+    {
+        decoder dec(const_byte_span{bytes.data(), bytes.size()});
+        auto m = dec.map();
+        {
+        CHECK(m.size() == 50);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1036,7 +1224,26 @@ TEST_CASE("bench: array_builder operator<< vs add", "[bench][encode]") {
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
     WARN(r4.name << " : " << r4.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify 600 items (200*3) in array
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        {
+            auto arr = enc.array();
+            for (int i = 0; i < 200; ++i) {
+                arr.add(int64_t(i));
+                arr.add(std::string_view("hello"));
+                arr.add(true);
+            }
+        }
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 600);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1117,7 +1324,22 @@ TEST_CASE("bench: roundtrip 100 floats", "[bench][roundtrip]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1199,6 +1421,21 @@ TEST_CASE("bench: roundtrip 1KB bytes x20", "[bench][roundtrip]") {
     WARN(r1.name << " : " << r1.us_per_op << " us/op");
     WARN(r2.name << " : " << r2.us_per_op << " us/op");
     WARN(r3.name << " : " << r3.us_per_op << " us/op");
-    CHECK(true);
+
+    // Correctness preflight: verify array size
+    {
+        uint8_t buf[16384];
+        encoder enc(byte_span{buf, sizeof(buf)});
+        enc.open_array();
+        for (int i = 0; i < 1000; ++i)
+            enc.add_int64(i * 7);
+        enc.close_array();
+        auto data = enc.finish();
+        decoder dec(data);
+        auto a = dec.array();
+        {
+        CHECK(a.size() == 1000);
+        }
+    }
 }
 

@@ -34,7 +34,7 @@ if(NOT qcbor_dep_POPULATED)
     FetchContent_MakeAvailable(qcbor_dep)
 endif()
 
-# ── 3. Test executable ──
+# ── 3. Test executable (unit tests only, no benchmark) ──
 add_executable(qcborpp_tests
     test_encoder_primitives.cpp
     test_encoder_compounds.cpp
@@ -50,7 +50,6 @@ add_executable(qcborpp_tests
     test_static_encoder.cpp
     test_cross_validation.cpp
     test_error_paths.cpp
-    test_bench.cpp
     test_chrono.cpp
     test_init_list.cpp
     test_decoder_convenience.cpp
@@ -66,7 +65,7 @@ add_executable(qcborpp_tests
 target_link_libraries(qcborpp_tests PRIVATE
     qcborpp
     Catch2::Catch2
-    qcbor      # QCBOR's own CMake target name (not the FetchContent declare name)
+    qcbor
 )
 
 target_include_directories(qcborpp_tests PRIVATE
@@ -75,6 +74,25 @@ target_include_directories(qcborpp_tests PRIVATE
 
 target_compile_features(qcborpp_tests PRIVATE cxx_std_17)
 
-# ── 4. Register tests with CTest ──
+# ── 4. Benchmark executable (separate target, not run by default) ──
+add_executable(qcborpp_bench
+    test_bench.cpp
+    test_main.cpp
+)
+
+target_link_libraries(qcborpp_bench PRIVATE
+    qcborpp
+    Catch2::Catch2
+    qcbor
+)
+
+target_include_directories(qcborpp_bench PRIVATE
+    "${qcbor_dep_SOURCE_DIR}/inc"
+)
+
+target_compile_features(qcborpp_bench PRIVATE cxx_std_17)
+
+# ── 5. Register tests with CTest (bench excluded by default) ──
 include(Catch)
 catch_discover_tests(qcborpp_tests)
+# Benchmarks are opt-in: cmake --build . --target qcborpp_bench && ctest -C bench
