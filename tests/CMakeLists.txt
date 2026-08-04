@@ -59,6 +59,7 @@ add_executable(qcborpp_tests
     test_wire_format.cpp
     test_numeric_conversion.cpp
     test_decoder_finish.cpp
+    test_find_api.cpp
     test_main.cpp
 )
 

@@ -484,6 +484,32 @@ public:
     bool contains(int64_t key);
 
     /**
+     * @brief  Find an item by text label, without type conversion.
+     *
+     * Returns an item_proxy if the key exists, or std::nullopt if it does
+     * not.  Unlike operator[], find() never throws on missing keys and
+     * separates "key not found" from "type mismatch" — the caller
+     * decides how to handle the returned item_proxy.
+     *
+     * Auto-prefetches if not already prefetched, then checks the cache.
+     * The returned item_proxy shares the map_scope's lifetime.
+     *
+     * @param key  The text label to look up.
+     * @return std::optional<item_proxy> — present iff the key exists.
+     */
+    std::optional<item_proxy> find(std::string_view key);
+
+    /**
+     * @brief  Find an item by integer label.
+     *
+     * Same semantics as find(std::string_view), but for integer-keyed maps.
+     *
+     * @param key  The integer label to look up.
+     * @return std::optional<item_proxy> — present iff the key exists.
+     */
+    std::optional<item_proxy> find(int64_t key);
+
+    /**
      * @brief  Return the number of key-value pairs in this map.
      *
      * Auto-prefetches if not already prefetched, then returns cache size.
@@ -1330,6 +1356,22 @@ inline bool map_scope::contains(int64_t key) {
         if (entry.first == key) return true;
     }
     return false;
+}
+
+inline std::optional<item_proxy> map_scope::find(std::string_view key) {
+    if (!prefetched_) prefetch();
+    auto it = cache_.find(std::string(key));
+    if (it == cache_.end()) return std::nullopt;
+    return item_proxy{*dec_, it->second, std::string(it->first)};
+}
+
+inline std::optional<item_proxy> map_scope::find(int64_t key) {
+    if (!prefetched_) prefetch();
+    for (auto& entry : int_cache_) {
+        if (entry.first == key)
+            return item_proxy{*dec_, entry.second, entry.first};
+    }
+    return std::nullopt;
 }
 
 template<typename F>
