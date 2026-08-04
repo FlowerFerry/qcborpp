@@ -536,6 +536,108 @@ TEST_CASE("dynamic_encoder: add_encoded embeds CBOR item not bytes", "[dynamic_e
     // when add_encoded items are mixed with regular items (pre-existing).
 }
 
+// ═════════════════════════════════════════════════════════════════
+// encoded_item strong-type wrapper
+// ═════════════════════════════════════════════════════════════════
+
+TEST_CASE("dynamic_encoder: add_encoded encoded_item parity", "[dynamic_encoder][tagged][encoded_item]")
+{
+    // Encode an int64, then embed it via both const_byte_span and encoded_item.
+    // Both paths must produce identical CBOR.
+    dynamic_encoder inner;
+    inner.add_int64(42);
+    auto inner_data = inner.finish();
+
+    // Path A: const_byte_span (existing API)
+    dynamic_encoder enc_a;
+    enc_a.open_array();
+    enc_a.add_encoded(inner_data);
+    enc_a.close_array();
+    auto data_a = enc_a.finish();
+
+    // Path B: encoded_item (new strong-type API)
+    dynamic_encoder enc_b;
+    enc_b.open_array();
+    enc_b.add_encoded(encoded_item{inner_data});
+    enc_b.close_array();
+    auto data_b = enc_b.finish();
+
+    // Identical CBOR bytes
+    REQUIRE(data_a.size() == data_b.size());
+    REQUIRE(std::memcmp(data_a.data(), data_b.data(), data_a.size()) == 0);
+
+    // Decode — verify embedded item is int64, not bytes
+    decoder dec(data_b);
+    auto a = dec.array();
+    REQUIRE(int64_t(a.next()) == 42);
+}
+
+TEST_CASE("static_encoder: add_encoded encoded_item parity", "[static_encoder][tagged][encoded_item]")
+{
+    uint8_t inner_buf[32];
+    encoder inner(byte_span{inner_buf, sizeof(inner_buf)});
+    inner.add_int64(42);
+    auto inner_data = inner.finish();
+
+    // Path A: const_byte_span
+    uint8_t buf_a[128];
+    encoder enc_a(byte_span{buf_a, sizeof(buf_a)});
+    enc_a.open_array();
+    enc_a.add_encoded(inner_data);
+    enc_a.close_array();
+    auto data_a = enc_a.finish();
+
+    // Path B: encoded_item
+    uint8_t buf_b[128];
+    encoder enc_b(byte_span{buf_b, sizeof(buf_b)});
+    enc_b.open_array();
+    enc_b.add_encoded(encoded_item{inner_data});
+    enc_b.close_array();
+    auto data_b = enc_b.finish();
+
+    // Identical CBOR bytes
+    REQUIRE(data_a.size() == data_b.size());
+    REQUIRE(std::memcmp(data_a.data(), data_b.data(), data_a.size()) == 0);
+
+    // Decode — verify embedded item is int64
+    decoder dec(data_b);
+    auto a = dec.array();
+    REQUIRE(int64_t(a.next()) == 42);
+}
+
+TEST_CASE("dynamic_encoder: add_bytes vs add_encoded behavior contrast", "[dynamic_encoder][tagged][encoded_item]")
+{
+    const uint8_t raw[] = {0x18, 0x2A};  // CBOR-encoded integer 42
+    const_byte_span cbor_bytes{raw, sizeof(raw)};
+
+    // add_bytes: wraps as CBOR byte string (type == byte_string)
+    dynamic_encoder enc_bytes;
+    enc_bytes.open_array();
+    enc_bytes.add_bytes(cbor_bytes);
+    enc_bytes.close_array();
+    auto data_bytes = enc_bytes.finish();
+
+    decoder dec_bytes(data_bytes);
+    auto a_bytes = dec_bytes.array();
+    auto item_bytes = a_bytes.next();
+    REQUIRE(item_bytes.type() == cbor_type::byte_string);
+
+    // add_encoded: embeds raw CBOR (type == int64)
+    dynamic_encoder enc_encoded;
+    enc_encoded.open_array();
+    enc_encoded.add_encoded(encoded_item{cbor_bytes});
+    enc_encoded.close_array();
+    auto data_encoded = enc_encoded.finish();
+
+    decoder dec_encoded(data_encoded);
+    auto a_encoded = dec_encoded.array();
+    auto item_encoded = a_encoded.next();
+    REQUIRE(item_encoded.type() == cbor_type::int64);
+    REQUIRE(item_encoded.as_int64() == 42);
+
+    // The two outputs must differ (different CBOR structure)
+    REQUIRE(data_bytes.size() != data_encoded.size());
+}
 TEST_CASE("dynamic_encoder: add_encoded static/dynamic parity", "[dynamic_encoder][cross_validation]")
 {
     // Encode 99

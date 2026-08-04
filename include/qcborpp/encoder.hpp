@@ -859,6 +859,10 @@ public:
         QCBOREncode_AddEncoded(&ctx_, {const_cast<uint8_t*>(encoded.data()), encoded.size()});
         return *this;
     }
+    /** @brief  Insert pre-encoded CBOR via encoded_item strong type. */
+    encoder& add_encoded(encoded_item item) {
+        return add_encoded(item.bytes);
+    }
 };
 
 // ============================================================================

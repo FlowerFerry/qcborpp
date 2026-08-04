@@ -159,6 +159,24 @@ enum class tag_requirement : uint8_t {
     allow_additional = 0x80,       ///< OR with above: permit additional tags.
 };
 
+/** Strong type wrapper: pre-encoded CBOR bytes for add_encoded().
+ *
+ *  Wrapping a const_byte_span in encoded_item makes it explicit at the
+ *  call site that the bytes are already-encoded CBOR, as opposed to raw
+ *  bytes that should be wrapped in a CBOR byte string (add_bytes()).
+ *
+ *  Usage:
+ *  @code
+ *    enc.add_encoded(encoded_item{encoded_data});
+ *  @endcode
+ */
+struct encoded_item {
+    const_byte_span bytes;
+
+    explicit encoded_item(const_byte_span b) noexcept : bytes(b) {}
+    explicit encoded_item(byte_span b) noexcept : bytes(b) {}
+};
+
 /** Epoch date structure: integer seconds + fractional component. */
 struct epoch_date {
     int64_t seconds;               ///< Whole seconds since epoch.

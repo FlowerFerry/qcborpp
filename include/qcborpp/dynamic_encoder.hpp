@@ -448,6 +448,10 @@ public:
         detail::record_bytes(ops_, detail::enc_op::add_encoded, encoded);
         return *this;
     }
+    /** @brief  Insert pre-encoded CBOR via encoded_item strong type. */
+    dynamic_encoder& add_encoded(encoded_item item) {
+        return add_encoded(item.bytes);
+    }
 };
 
 // ============================================================================
