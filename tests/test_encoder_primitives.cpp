@@ -139,9 +139,11 @@ TEST_CASE("dynamic_encoder: add_double_no_preferred", "[dynamic_encoder][primiti
     enc.add_double_no_preferred(1.0);
     enc.close_array();
     auto data = enc.finish();
-    // With NoPreferred, even 1.0 should be encoded as 8-byte double.
-    // 1 byte array header + 1 byte header + 8 byte double = 10
-    REQUIRE(data.size() >= 9);
+    // With NoPreferred, even 1.0 should be encoded as 8-byte double (major type 7, ai 27).
+    // Array: 0x81 | double: 0xFB followed by 8 bytes → 10 bytes total.
+    REQUIRE(data.size() == 10);
+    // Verify the double header byte 0xFB at position 1
+    REQUIRE(data[1] == 0xFB);
 }
 
 TEST_CASE("dynamic_encoder: add_bool", "[dynamic_encoder][primitives]") {
@@ -166,14 +168,13 @@ TEST_CASE("dynamic_encoder: add_null and add_undef", "[dynamic_encoder][primitiv
     enc.add_undef();
     enc.close_array();
     auto data = enc.finish();
-    // Both are simple values, check it decodes
+    // Both are simple values — verify type
     decoder dec(data);
     auto arr = dec.array();
-    // Null and undef can't be auto-converted; just check it's valid CBOR
     REQUIRE(!arr.done());
-    arr.next();
+    REQUIRE(arr.next().is_null());
     REQUIRE(!arr.done());
-    arr.next();
+    REQUIRE(arr.next().is_undef());
     dec.finish();
 }
 

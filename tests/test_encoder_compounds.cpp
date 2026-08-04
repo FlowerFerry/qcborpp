@@ -61,6 +61,7 @@ TEST_CASE("dynamic_encoder: map with scalar values", "[dynamic_encoder][compound
     REQUIRE(std::string_view(m["text"]) == "hello");
     REQUIRE_THAT(double(m["double"]), Catch::Matchers::WithinAbs(3.14, 1e-5));
     REQUIRE(bool(m["boolean"]) == true);
+    REQUIRE(m["null_val"].is_null());
     dec.finish();
 }
 
@@ -126,7 +127,7 @@ TEST_CASE("dynamic_encoder: array add methods", "[dynamic_encoder][compounds]") 
     REQUIRE(std::string_view(a.next()) == "text");
     REQUIRE_THAT(double(a.next()), Catch::Matchers::WithinAbs(3.5, 1e-6));
     REQUIRE(bool(a.next()) == true);
-    a.next(); // null
+    REQUIRE(a.next().is_null());
     dec.finish();
 }
 

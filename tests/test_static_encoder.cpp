@@ -317,8 +317,12 @@ TEST_CASE("static_encoder: add_decimal_fraction roundtrip", "[static_encoder]") 
 
     decoder dec(data);
     auto a = dec.array();
-    // Tag 4 → array [exp10, mantissa] → just verify decodes OK
-    REQUIRE_NOTHROW(a.next());
+    // Tag 4 wraps an array of [exp10, mantissa]; QCBOR decodes it as decimal_fraction
+    auto df = a.next().as_decimal_fraction();
+    REQUIRE(df.exponent == -2);
+    auto m = df.as_integer();
+    REQUIRE(m.has_value());
+    REQUIRE(*m == 314);
     dec.finish();
 }
 
@@ -685,6 +689,10 @@ TEST_CASE("static_encoder: add_double_no_preferred roundtrip", "[static_encoder]
     decoder dec(data);
     auto a = dec.array();
     REQUIRE_THAT(double(a.next()), Catch::Matchers::WithinRel(3.14, 1e-9));
+    // NoPreferred should produce 8-byte double, not 4-byte float.
+    // Array header 0x81 + double header 0xFB + 8 bytes = 10 bytes.
+    REQUIRE(data.size() == 10);
+    REQUIRE(data[1] == 0xFB);
     dec.finish();
 }
 
@@ -697,6 +705,10 @@ TEST_CASE("static_encoder: add_float_no_preferred roundtrip", "[static_encoder]"
     decoder dec(data);
     auto a = dec.array();
     REQUIRE_THAT(double(a.next()), Catch::Matchers::WithinRel(1.5, 1e-6));
+    // NoPreferred should produce 4-byte float, not 8-byte double.
+    // Array header 0x81 + float header 0xFA + 4 bytes = 6 bytes.
+    REQUIRE(data.size() == 6);
+    REQUIRE(data[1] == 0xFA);
     dec.finish();
 }
 
