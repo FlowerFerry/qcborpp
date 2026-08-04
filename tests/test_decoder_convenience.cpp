@@ -29,24 +29,28 @@ TEST_CASE("convenience: get_or — existing key returns value", "[convenience]")
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK(m["count"].get_or(0) == 42);
-    CHECK(m["name"].get_or(std::string_view{"fallback"}) == "Niels");
-    CHECK(m["active"].get_or(false) == true);
-    CHECK(std::abs(m["version"].get_or(0.0) - 1.5) < 0.001);
+    {
+        auto m = dec.map();
+        CHECK(m["count"].get_or(0) == 42);
+        CHECK(m["name"].get_or(std::string_view{"fallback"}) == "Niels");
+        CHECK(m["active"].get_or(false) == true);
+        CHECK(std::abs(m["version"].get_or(0.0) - 1.5) < 0.001);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: get_or — missing key returns default", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK(m["nonexistent"].get_or(-1) == -1);
-    CHECK(m["no_such_key"].get_or(std::string_view{"default"}) == "default");
-    CHECK(m["missing_bool"].get_or(false) == false);
-    CHECK(m["missing_double"].get_or(99.9) == 99.9);
+    {
+        auto m = dec.map();
+        CHECK(m["nonexistent"].get_or(-1) == -1);
+        CHECK(m["no_such_key"].get_or(std::string_view{"default"}) == "default");
+        CHECK(m["missing_bool"].get_or(false) == false);
+        CHECK(m["missing_double"].get_or(99.9) == 99.9);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: get_or — type mismatch returns default", "[convenience]") {
@@ -67,33 +71,39 @@ TEST_CASE("convenience: contains — existing key", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK(m.contains("name"));
-    CHECK(m.contains("count"));
-    CHECK(m.contains("comment"));
+    {
+        auto m = dec.map();
+        CHECK(m.contains("name"));
+        CHECK(m.contains("count"));
+        CHECK(m.contains("comment"));
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: contains — missing key", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK_FALSE(m.contains("nonexistent"));
-    CHECK_FALSE(m.contains(""));
-    CHECK_FALSE(m.contains("nope"));
+    {
+        auto m = dec.map();
+        CHECK_FALSE(m.contains("nonexistent"));
+        CHECK_FALSE(m.contains(""));
+        CHECK_FALSE(m.contains("nope"));
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: contains — does not consume cursor", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK(m.contains("name"));
-    // Still able to access after contains()
-    CHECK(std::string_view{m["name"]} == "Niels");
+    {
+        auto m = dec.map();
+        CHECK(m.contains("name"));
+        // Still able to access after contains()
+        CHECK(std::string_view{m["name"]} == "Niels");
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ── contains(int64_t) for integer-keyed maps ──
@@ -108,11 +118,13 @@ TEST_CASE("convenience: contains(int64_t) — existing key", "[convenience]") {
     }
     auto data = enc.finish();
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK(m.contains(0));
-    CHECK(m.contains(42));
-    CHECK(m.contains(99));
+    {
+        auto m = dec.map();
+        CHECK(m.contains(0));
+        CHECK(m.contains(42));
+        CHECK(m.contains(99));
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: contains(int64_t) — missing key", "[convenience]") {
@@ -124,11 +136,13 @@ TEST_CASE("convenience: contains(int64_t) — missing key", "[convenience]") {
     }
     auto data = enc.finish();
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK_FALSE(m.contains(0));
-    CHECK_FALSE(m.contains(999));
-    CHECK_FALSE(m.contains(-1));
+    {
+        auto m = dec.map();
+        CHECK_FALSE(m.contains(0));
+        CHECK_FALSE(m.contains(999));
+        CHECK_FALSE(m.contains(-1));
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: contains(int64_t) — mixed int/string keys", "[convenience]") {
@@ -140,13 +154,15 @@ TEST_CASE("convenience: contains(int64_t) — mixed int/string keys", "[convenie
     }
     auto data = enc.finish();
     decoder dec(data);
-    auto m = dec.map();
-
-    // string-keyed contains still works
-    CHECK(m.contains("name"));
-    // int-keyed contains works alongside string keys
-    CHECK(m.contains(42));
-    CHECK_FALSE(m.contains(43));
+    {
+        auto m = dec.map();
+        // string-keyed contains still works
+        CHECK(m.contains("name"));
+        // int-keyed contains works alongside string keys
+        CHECK(m.contains(42));
+        CHECK_FALSE(m.contains(43));
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ===== size =====
@@ -155,9 +171,11 @@ TEST_CASE("convenience: size — flat map", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK(m.size() == 5);  // name, count, active, version, comment
+    {
+        auto m = dec.map();
+        CHECK(m.size() == 5);  // name, count, active, version, comment
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: size — empty map", "[convenience]") {
@@ -168,8 +186,11 @@ TEST_CASE("convenience: size — empty map", "[convenience]") {
     auto data = enc.finish();
 
     decoder dec(data);
-    auto m = dec.map();
-    CHECK(m.size() == 0);
+    {
+        auto m = dec.map();
+        CHECK(m.size() == 0);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ===== for_each =====
@@ -178,19 +199,20 @@ TEST_CASE("convenience: for_each — iterate all entries", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    int count = 0;
-    bool found_name = false, found_count = false;
-    m.for_each([&](std::string_view key, decoded_item val) {
-        ++count;
-        if (key == "name")  { found_name = true;  CHECK(val.type == cbor_type::text_string); }
-        if (key == "count") { found_count = true; CHECK(val.type == cbor_type::int64); }
-    });
-
-    CHECK(count == 5);
-    CHECK(found_name);
-    CHECK(found_count);
+    {
+        auto m = dec.map();
+        int count = 0;
+        bool found_name = false, found_count = false;
+        m.for_each([&](std::string_view key, decoded_item val) {
+            ++count;
+            if (key == "name")  { found_name = true;  CHECK(val.type == cbor_type::text_string); }
+            if (key == "count") { found_count = true; CHECK(val.type == cbor_type::int64); }
+        });
+        CHECK(count == 5);
+        CHECK(found_name);
+        CHECK(found_count);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: for_each — empty map", "[convenience]") {
@@ -201,20 +223,25 @@ TEST_CASE("convenience: for_each — empty map", "[convenience]") {
     auto data = enc.finish();
 
     decoder dec(data);
-    auto m = dec.map();
-    int count = 0;
-    m.for_each([&](std::string_view, decoded_item) { ++count; });
-    CHECK(count == 0);
+    {
+        auto m = dec.map();
+        int count = 0;
+        m.for_each([&](std::string_view, decoded_item) { ++count; });
+        CHECK(count == 0);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: for_each — chaining returns map_scope ref", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    auto& ref = m.for_each([](std::string_view, decoded_item) {});
-    CHECK(&ref == &m);  // returns *this
+    {
+        auto m = dec.map();
+        auto& ref = m.for_each([](std::string_view, decoded_item) {});
+        CHECK(&ref == &m);  // returns *this
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ===== integration: get_or + contains + size together =====
@@ -223,14 +250,16 @@ TEST_CASE("convenience: combined usage", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    // Check existence first
-    if (m.contains("count")) {
-        CHECK(m["count"].get_or(0) == 42);
+    {
+        auto m = dec.map();
+        // Check existence first
+        if (m.contains("count")) {
+            CHECK(m["count"].get_or(0) == 42);
+        }
+        CHECK(m["flag"].get_or(true) == true);  // missing → default
+        CHECK(m.size() == 5);
     }
-    CHECK(m["flag"].get_or(true) == true);  // missing → default
-    CHECK(m.size() == 5);
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ===== get_or — syntactic sugar on map_scope =====
@@ -239,34 +268,40 @@ TEST_CASE("convenience: get_or(map) — string key, existing", "[convenience]") 
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK(m.get_or("count", 0) == 42);
-    CHECK(m.get_or("name", std::string_view{"fallback"}) == "Niels");
-    CHECK(m.get_or("active", false) == true);
+    {
+        auto m = dec.map();
+        CHECK(m.get_or("count", 0) == 42);
+        CHECK(m.get_or("name", std::string_view{"fallback"}) == "Niels");
+        CHECK(m.get_or("active", false) == true);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: get_or(map) — string key, missing returns default", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    CHECK(m.get_or("ghost", -1) == -1);
-    CHECK(m.get_or("nope", std::string_view{"default"}) == "default");
-    CHECK(m.get_or("no_double", 3.14) == 3.14);
+    {
+        auto m = dec.map();
+        CHECK(m.get_or("ghost", -1) == -1);
+        CHECK(m.get_or("nope", std::string_view{"default"}) == "default");
+        CHECK(m.get_or("no_double", 3.14) == 3.14);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: get_or(map) — int literal deduces correctly", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    // 0 is int, maps to int64_t via get_or(int)
-    CHECK(m.get_or("count", 0) == 42);
-    // missing → default int
-    CHECK(m.get_or("missing", 99) == 99);
+    {
+        auto m = dec.map();
+        // 0 is int, maps to int64_t via get_or(int)
+        CHECK(m.get_or("count", 0) == 42);
+        // missing → default int
+        CHECK(m.get_or("missing", 99) == 99);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ===== try_get — std::optional access =====
@@ -275,29 +310,33 @@ TEST_CASE("convenience: try_get — existing key returns value", "[convenience]"
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
+    {
+        auto m = dec.map();
+        auto opt1 = m["count"].try_get<int64_t>();
+        CHECK(opt1.has_value());
+        CHECK(*opt1 == 42);
 
-    auto opt1 = m["count"].try_get<int64_t>();
-    CHECK(opt1.has_value());
-    CHECK(*opt1 == 42);
+        auto opt2 = m["name"].try_get<std::string_view>();
+        CHECK(opt2.has_value());
+        CHECK(*opt2 == "Niels");
 
-    auto opt2 = m["name"].try_get<std::string_view>();
-    CHECK(opt2.has_value());
-    CHECK(*opt2 == "Niels");
-
-    auto opt3 = m["active"].try_get<bool>();
-    CHECK(opt3.has_value());
-    CHECK(*opt3 == true);
+        auto opt3 = m["active"].try_get<bool>();
+        CHECK(opt3.has_value());
+        CHECK(*opt3 == true);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: try_get — missing key returns nullopt", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    auto opt = m["nonexistent"].try_get<int64_t>();
-    CHECK_FALSE(opt.has_value());
+    {
+        auto m = dec.map();
+        auto opt = m["nonexistent"].try_get<int64_t>();
+        CHECK_FALSE(opt.has_value());
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: try_get — type mismatch returns nullopt", "[convenience]") {
@@ -317,21 +356,25 @@ TEST_CASE("convenience: try_get(map) — existing key returns value", "[convenie
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    auto v = m.try_get<int64_t>("count");
-    REQUIRE(v.has_value());
-    CHECK(*v == 42);
+    {
+        auto m = dec.map();
+        auto v = m.try_get<int64_t>("count");
+        REQUIRE(v.has_value());
+        CHECK(*v == 42);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: try_get(map) — missing key returns nullopt", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
-    auto m = dec.map();
-
-    auto v = m.try_get<int64_t>("ghost");
-    CHECK_FALSE(v.has_value());
+    {
+        auto m = dec.map();
+        auto v = m.try_get<int64_t>("ghost");
+        CHECK_FALSE(v.has_value());
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: try_get(map) — type mismatch returns nullopt", "[convenience]") {
@@ -356,10 +399,12 @@ TEST_CASE("convenience: get_int64 — converts uint64", "[convenience]") {
         m["dval"] = 3.14;
     }
     decoder dec(enc.finish());
-    auto m = dec.map();
-
-    CHECK(m["uval"].get_int64() == 42);
-    CHECK(m["dval"].get_int64() == 3);  // llround(3.14) = 3
+    {
+        auto m = dec.map();
+        CHECK(m["uval"].get_int64() == 42);
+        CHECK(m["dval"].get_int64() == 3);  // llround(3.14) = 3
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: get_int64 — rejects non-numeric", "[convenience]") {
@@ -379,9 +424,11 @@ TEST_CASE("convenience: get_uint64 — converts int64", "[convenience]") {
         m["ival"] = int64_t(100);
     }
     decoder dec(enc.finish());
-    auto m = dec.map();
-
-    CHECK(m["ival"].get_uint64() == 100);
+    {
+        auto m = dec.map();
+        CHECK(m["ival"].get_uint64() == 100);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: get_double — converts int64 and uint64", "[convenience]") {
@@ -393,10 +440,12 @@ TEST_CASE("convenience: get_double — converts int64 and uint64", "[convenience
         m["uval"] = uint64_t(99);
     }
     decoder dec(enc.finish());
-    auto m = dec.map();
-
-    CHECK(m["ival"].get_double() == 7.0);
-    CHECK(m["uval"].get_double() == 99.0);
+    {
+        auto m = dec.map();
+        CHECK(m["ival"].get_double() == 7.0);
+        CHECK(m["uval"].get_double() == 99.0);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: as_int64 — still strict rejects uint64", "[convenience]") {
@@ -419,9 +468,11 @@ TEST_CASE("convenience: get_or int64 — converts uint64", "[convenience]") {
     encoder enc(byte_span{buf, sizeof(buf)});
     { auto m = enc.map(); m["val"] = uint64_t(77); }
     decoder dec(enc.finish());
-    auto m = dec.map();
-
-    CHECK(m["val"].get_or(int64_t(-1)) == 77);
+    {
+        auto m = dec.map();
+        CHECK(m["val"].get_or(int64_t(-1)) == 77);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: get_or double — converts int64", "[convenience]") {
@@ -429,9 +480,11 @@ TEST_CASE("convenience: get_or double — converts int64", "[convenience]") {
     encoder enc(byte_span{buf, sizeof(buf)});
     { auto m = enc.map(); m["val"] = int64_t(3); }
     decoder dec(enc.finish());
-    auto m = dec.map();
-
-    CHECK(m["val"].get_or(0.0) == 3.0);
+    {
+        auto m = dec.map();
+        CHECK(m["val"].get_or(0.0) == 3.0);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ===== try_get — cross-numeric convert =====
@@ -441,11 +494,13 @@ TEST_CASE("convenience: try_get int64_t — converts double", "[convenience]") {
     encoder enc(byte_span{buf, sizeof(buf)});
     { auto m = enc.map(); m["val"] = 3.14; }
     decoder dec(enc.finish());
-    auto m = dec.map();
-
-    auto v = m.try_get<int64_t>("val");
-    REQUIRE(v.has_value());
-    CHECK(*v == 3);
+    {
+        auto m = dec.map();
+        auto v = m.try_get<int64_t>("val");
+        REQUIRE(v.has_value());
+        CHECK(*v == 3);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ===== empty — map_scope emptiness check =====
@@ -454,8 +509,11 @@ TEST_CASE("convenience: empty — non-empty map returns false", "[convenience]")
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));  // count, name, active, version, comment
     decoder dec(data);
-    auto m = dec.map();
-    CHECK_FALSE(m.empty());
+    {
+        auto m = dec.map();
+        CHECK_FALSE(m.empty());
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("convenience: empty — truly empty map returns true", "[convenience]") {
@@ -463,8 +521,11 @@ TEST_CASE("convenience: empty — truly empty map returns true", "[convenience]"
     encoder enc(byte_span{buf, sizeof(buf)});
     { auto m = enc.map(); /* no entries */ }
     decoder dec(enc.finish());
-    auto m = dec.map();
-    CHECK(m.empty());
+    {
+        auto m = dec.map();
+        CHECK(m.empty());
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // ===== force_prefetch(false) — lazy decode path =====
@@ -480,13 +541,15 @@ TEST_CASE("force_prefetch(false): operator[] returns correct values", "[force_pr
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    // Each access hits the Spiffy lazy path (GetItemInMapSZ)
-    CHECK(std::string_view(m["name"]) == "Niels");
-    CHECK(m["count"].get_or(0) == 42);
-    CHECK(m["active"].get_or(false) == true);
-    CHECK(std::abs(m["pi"].get_or(0.0) - 3.14) < 0.001);
+    {
+        auto m = dec.map();
+        // Each access hits the Spiffy lazy path (GetItemInMapSZ)
+        CHECK(std::string_view(m["name"]) == "Niels");
+        CHECK(m["count"].get_or(0) == 42);
+        CHECK(m["active"].get_or(false) == true);
+        CHECK(std::abs(m["pi"].get_or(0.0) - 3.14) < 0.001);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("force_prefetch(false): contains triggers on-demand prefetch", "[force_prefetch]") {
@@ -499,17 +562,18 @@ TEST_CASE("force_prefetch(false): contains triggers on-demand prefetch", "[force
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    // contains() triggers prefetch → cache_ populated
-    CHECK(m.contains("a"));
-    CHECK(m.contains("b"));
-    CHECK_FALSE(m.contains("zzz"));
-
-    // After contains(), operator[] hits the now-populated cache
-    CHECK(m["a"].get_or(0) == 1);
-    CHECK(m["b"].get_or(0) == 2);
-    CHECK(m["c"].get_or(0) == 3);
+    {
+        auto m = dec.map();
+        // contains() triggers prefetch → cache_ populated
+        CHECK(m.contains("a"));
+        CHECK(m.contains("b"));
+        CHECK_FALSE(m.contains("zzz"));
+        // After contains(), operator[] hits the now-populated cache
+        CHECK(m["a"].get_or(0) == 1);
+        CHECK(m["b"].get_or(0) == 2);
+        CHECK(m["c"].get_or(0) == 3);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("force_prefetch(false): size triggers on-demand prefetch", "[force_prefetch]") {
@@ -522,11 +586,13 @@ TEST_CASE("force_prefetch(false): size triggers on-demand prefetch", "[force_pre
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    CHECK(m.size() == 3);
-    // After size(), operator[] hits cache
-    CHECK(m["x"].get_or(0) == 10);
+    {
+        auto m = dec.map();
+        CHECK(m.size() == 3);
+        // After size(), operator[] hits cache
+        CHECK(m["x"].get_or(0) == 10);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("force_prefetch(false): get_or works without prefetch", "[force_prefetch]") {
@@ -538,12 +604,14 @@ TEST_CASE("force_prefetch(false): get_or works without prefetch", "[force_prefet
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    // get_or uses Spiffy GetItemInMapSZ — no prefetch needed
-    CHECK(m["value"].get_or(0) == 99);
-    CHECK(m["text"].get_or(std::string_view{"x"}) == "hello");
-    CHECK(m["missing"].get_or(-1) == -1);
+    {
+        auto m = dec.map();
+        // get_or uses Spiffy GetItemInMapSZ — no prefetch needed
+        CHECK(m["value"].get_or(0) == 99);
+        CHECK(m["text"].get_or(std::string_view{"x"}) == "hello");
+        CHECK(m["missing"].get_or(-1) == -1);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("force_prefetch(false): try_get works without prefetch", "[force_prefetch]") {
@@ -554,14 +622,15 @@ TEST_CASE("force_prefetch(false): try_get works without prefetch", "[force_prefe
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    auto v1 = m["val"].try_get<int64_t>();
-    REQUIRE(v1.has_value());
-    CHECK(*v1 == 77);
-
-    auto v2 = m["ghost"].try_get<int64_t>();
-    CHECK_FALSE(v2.has_value());
+    {
+        auto m = dec.map();
+        auto v1 = m["val"].try_get<int64_t>();
+        REQUIRE(v1.has_value());
+        CHECK(*v1 == 77);
+        auto v2 = m["ghost"].try_get<int64_t>();
+        CHECK_FALSE(v2.has_value());
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("force_prefetch(false): nested map via as_map()", "[force_prefetch]") {
@@ -576,14 +645,17 @@ TEST_CASE("force_prefetch(false): nested map via as_map()", "[force_prefetch]") 
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    // Outer map: lazy access
-    CHECK(std::string_view(m["top"]) == "level1");
-
-    // Nested map: as_map() on label-enabled proxy (force_prefetch_=false → no auto-prefetch)
-    auto inner = m["inner"].as_map();
-    CHECK(std::string_view(inner["deep"]) == "level2");
+    {
+        auto m = dec.map();
+        // Outer map: lazy access
+        CHECK(std::string_view(m["top"]) == "level1");
+        // Nested map: as_map() on label-enabled proxy
+        {
+            auto inner = m["inner"].as_map();
+            CHECK(std::string_view(inner["deep"]) == "level2");
+        }
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("force_prefetch(false): for_each triggers prefetch", "[force_prefetch]") {
@@ -595,11 +667,13 @@ TEST_CASE("force_prefetch(false): for_each triggers prefetch", "[force_prefetch]
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    int count = 0;
-    m.for_each([&](std::string_view, decoded_item) { ++count; });
-    CHECK(count == 2);
+    {
+        auto m = dec.map();
+        int count = 0;
+        m.for_each([&](std::string_view, decoded_item) { ++count; });
+        CHECK(count == 2);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("force_prefetch(false): for_each_int triggers prefetch", "[force_prefetch]") {
@@ -611,11 +685,13 @@ TEST_CASE("force_prefetch(false): for_each_int triggers prefetch", "[force_prefe
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    int count = 0;
-    m.for_each_int([&](int64_t, decoded_item) { ++count; });
-    CHECK(count == 2);
+    {
+        auto m = dec.map();
+        int count = 0;
+        m.for_each_int([&](int64_t, decoded_item) { ++count; });
+        CHECK(count == 2);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 TEST_CASE("force_prefetch(false): mixed string and int keys", "[force_prefetch]") {
@@ -627,12 +703,14 @@ TEST_CASE("force_prefetch(false): mixed string and int keys", "[force_prefetch]"
     }
     decoder dec(enc.finish());
     dec.set_force_prefetch(false);
-    auto m = dec.map();
-
-    CHECK(m.contains("name"));
-    CHECK(m.contains(42));
-    CHECK(std::string_view(m["name"]) == "test");
-    CHECK(m.size() == 2);
+    {
+        auto m = dec.map();
+        CHECK(m.contains("name"));
+        CHECK(m.contains(42));
+        CHECK(std::string_view(m["name"]) == "test");
+        CHECK(m.size() == 2);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
 
 // Verify default is still force_prefetch=true
@@ -647,7 +725,10 @@ TEST_CASE("force_prefetch: default is true", "[force_prefetch]") {
     CHECK(dec.force_prefetch() == true);
 
     // Default path (with prefetch) works as before
-    auto m = dec.map();
-    CHECK(m["k5"].get_or(-1) == 5);
-    CHECK(m.size() == 20);
+    {
+        auto m = dec.map();
+        CHECK(m["k5"].get_or(-1) == 5);
+        CHECK(m.size() == 20);
+    }
+    REQUIRE_FALSE(dec.finish());
 }
