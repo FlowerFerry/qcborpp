@@ -710,8 +710,15 @@ public:
      */
     template<typename T>
     std::optional<T> try_get() const noexcept {
-        try { return std::optional<T>(static_cast<const item_proxy&>(*this)); }
-        catch (...) { return std::nullopt; }
+        // Sentinel: key absent in prefetched map — return nullopt
+        // without throwing, keeping decoder error state clean.
+        // Two-step conversion sidesteps MSVC /LTCG terminate-on-noexcept.
+        if (has_cached_ && cached_.type == cbor_type::none)
+            return std::nullopt;
+        try {
+            T v = static_cast<const item_proxy&>(*this);
+            return std::optional<T>(std::move(v));
+        } catch (...) { return std::nullopt; }
     }
 
     // ── explicit getters ──
@@ -1500,22 +1507,29 @@ inline item_proxy::operator const_byte_span() const { return as_bytes(); }
 // ── get_or safe access ──
 
 inline int64_t item_proxy::get_or(int64_t default_val) const noexcept {
+    // Sentinel: key absent in prefetched map — skip throw to keep
+    // decoder error state clean for subsequent finish() checks.
+    if (has_cached_ && cached_.type == cbor_type::none) return default_val;
     try { return get_int64(); } catch (...) { return default_val; }
 }
 
 inline uint64_t item_proxy::get_or(uint64_t default_val) const noexcept {
+    if (has_cached_ && cached_.type == cbor_type::none) return default_val;
     try { return get_uint64(); } catch (...) { return default_val; }
 }
 
 inline std::string_view item_proxy::get_or(std::string_view default_val) const noexcept {
+    if (has_cached_ && cached_.type == cbor_type::none) return default_val;
     try { return as_string(); } catch (...) { return default_val; }
 }
 
 inline double item_proxy::get_or(double default_val) const noexcept {
+    if (has_cached_ && cached_.type == cbor_type::none) return default_val;
     try { return get_double(); } catch (...) { return default_val; }
 }
 
 inline bool item_proxy::get_or(bool default_val) const noexcept {
+    if (has_cached_ && cached_.type == cbor_type::none) return default_val;
     try { return as_bool(); } catch (...) { return default_val; }
 }
 
@@ -1528,6 +1542,10 @@ inline int64_t item_proxy::get_int64() const {
         case cbor_type::uint64: return static_cast<int64_t>(cached_.value.uint64_val);
         case cbor_type::double_v: return static_cast<int64_t>(std::llround(cached_.value.double_val));
         case cbor_type::float_v:  return static_cast<int64_t>(std::llround(cached_.value.float_val));
+        case cbor_type::none:
+            dec_->ctx_.uLastError = QCBOR_ERR_LABEL_NOT_FOUND;
+            dec_->check_err();
+            return 0;
         default:
             dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
             dec_->check_err();
@@ -1556,6 +1574,10 @@ inline uint64_t item_proxy::get_uint64() const {
         case cbor_type::int64:  return static_cast<uint64_t>(cached_.value.int64_val);
         case cbor_type::double_v: return static_cast<uint64_t>(std::llround(cached_.value.double_val));
         case cbor_type::float_v:  return static_cast<uint64_t>(std::llround(cached_.value.float_val));
+        case cbor_type::none:
+            dec_->ctx_.uLastError = QCBOR_ERR_LABEL_NOT_FOUND;
+            dec_->check_err();
+            return 0;
         default:
             dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
             dec_->check_err();
@@ -1584,6 +1606,10 @@ inline double item_proxy::get_double() const {
         case cbor_type::float_v:  return static_cast<double>(cached_.value.float_val);
         case cbor_type::int64:    return static_cast<double>(cached_.value.int64_val);
         case cbor_type::uint64:   return static_cast<double>(cached_.value.uint64_val);
+        case cbor_type::none:
+            dec_->ctx_.uLastError = QCBOR_ERR_LABEL_NOT_FOUND;
+            dec_->check_err();
+            return 0;
         default:
             dec_->ctx_.uLastError = QCBOR_ERR_UNEXPECTED_TYPE;
             dec_->check_err();
