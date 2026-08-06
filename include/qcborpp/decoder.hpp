@@ -580,10 +580,10 @@ class item_proxy {
     friend class array_scope;
     decoder*     dec_;
     bool         is_int_label_ = false;
+    bool         has_cached_   = false;
     int64_t      int_label_    = 0;
     std::string  str_label_;
     decoded_item cached_{};
-    bool         has_cached_ = false;
 
     explicit item_proxy(decoder& d) noexcept : dec_(&d) {}
 
@@ -605,6 +605,12 @@ class item_proxy {
     // Called from as_*() cached paths so get_or/try_get catch type mismatches.
     void check_cache_type(cbor_type expected) const {
         if (!has_cached_ || cached_.type == expected) return;
+        // Sentry: has_cached_+type=none means the key was confirmed
+        // absent in a prefetched map rather than a genuine type error.
+        if (cached_.type == cbor_type::none) {
+            dec_->ctx_.uLastError = QCBOR_ERR_LABEL_NOT_FOUND;
+            dec_->check_err();
+        }
         // bool special case: both true_v and false_v are valid
         if (expected == cbor_type::true_v && cached_.type == cbor_type::false_v) return;
         if (expected == cbor_type::false_v && cached_.type == cbor_type::true_v) return;
@@ -1314,6 +1320,11 @@ inline item_proxy map_scope::operator[](std::string_view key) {
         auto it = cache_.find(last_label_);
         if (it != cache_.end())
             return item_proxy{*dec_, it->second, last_label_};
+        // Key confirmed absent in prefetched map: return a sentinel
+        // proxy with has_cached_=true, type=none so any attempt to
+        // extract a value throws LABEL_NOT_FOUND without touching QCBOR.
+        decoded_item di{};
+        return item_proxy{*dec_, di, last_label_};
     }
     return item_proxy{*dec_, last_label_, false, 0};
 }
@@ -1324,6 +1335,10 @@ inline item_proxy map_scope::operator[](int64_t key) {
             if (ik == key)
                 return item_proxy{*dec_, iv, key};
         }
+        // Key confirmed absent in prefetched map: return a sentinel
+        // proxy with has_cached_=true, type=none.
+        decoded_item di{};
+        return item_proxy{*dec_, di, key};
     }
     return item_proxy{*dec_, {}, true, key};
 }
