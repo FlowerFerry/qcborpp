@@ -57,7 +57,7 @@ TEST_CASE("decoder-tagged: as_bignum negative", "[tagged]") {
     CHECK(m["bn"].type() == cbor_type::neg_bignum);
 }
 
-TEST_CASE("decoder-tagged: as_bignum — int-keyed map", "[tagged]") {
+TEST_CASE("decoder-tagged: as_bignum -- int-keyed map", "[tagged]") {
     dynamic_encoder enc;
     uint8_t big[] = {0xAA, 0xBB};
     enc.open_map();
@@ -111,7 +111,7 @@ TEST_CASE("decoder-tagged: as_decimal_fraction optional tag", "[tagged]") {
     CHECK_THROWS_AS(m["val"].as_decimal_fraction(tag_requirement::optional_tag), error);
 }
 
-TEST_CASE("decoder-tagged: as_decimal_fraction — int-keyed map", "[tagged]") {
+TEST_CASE("decoder-tagged: as_decimal_fraction -- int-keyed map", "[tagged]") {
     dynamic_encoder enc;
     enc.open_map();
     enc.add_int64(7);

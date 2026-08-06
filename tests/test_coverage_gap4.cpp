@@ -785,7 +785,7 @@ TEST_CASE("error: static encoder buffer overflow then decode partial data", "[er
     REQUIRE_THROWS_AS(dec.array(), error);
 }
 
-TEST_CASE("error: dynamic_encoder with unterminated container → corrupt output", "[error_paths][defensive]") {
+TEST_CASE("error: dynamic_encoder with unterminated container -> corrupt output", "[error_paths][defensive]") {
     dynamic_encoder enc;
     enc.open_map();
     enc.add_int64(1);

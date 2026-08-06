@@ -96,7 +96,7 @@ TEST_CASE("init_list: shallow nested subtree", "[init_list]") {
     CHECK(int64_t{m["answer"]["everything"]} == 42);
 }
 
-TEST_CASE("init_list: two sibling subtrees — fresh decoders", "[init_list]") {
+TEST_CASE("init_list: two sibling subtrees -- fresh decoders", "[init_list]") {
     uint8_t buf[512];
     encoder enc(BUF, {
         {"answer", {{"everything", 42}}},
@@ -146,7 +146,7 @@ TEST_CASE("init_list: list sub-array with map_scope alive", "[init_list]") {
     }
 }
 
-TEST_CASE("init_list: full README example — per-subtree decoders", "[init_list]") {
+TEST_CASE("init_list: full README example -- per-subtree decoders", "[init_list]") {
     uint8_t buf[1024];
     encoder enc(BUF, {
         {"pi",      3.141},
@@ -195,7 +195,7 @@ TEST_CASE("init_list: full README example — per-subtree decoders", "[init_list
 
 // ===== factories: arr, map, imap =====
 
-TEST_CASE("init_list: arr() factory — string list forced to array", "[init_list]") {
+TEST_CASE("init_list: arr() factory -- string list forced to array", "[init_list]") {
     uint8_t buf[256];
     encoder enc(BUF, {{"tags", arr({"a", "b", "c"})}});
     auto data = enc.finish();
@@ -209,7 +209,7 @@ TEST_CASE("init_list: arr() factory — string list forced to array", "[init_lis
     CHECK(tags.done());
 }
 
-TEST_CASE("init_list: arr() factory — empty array", "[init_list]") {
+TEST_CASE("init_list: arr() factory -- empty array", "[init_list]") {
     uint8_t buf[256];
     encoder enc(BUF, {{"empty_arr", arr({})}});
     auto data = enc.finish();
@@ -219,7 +219,7 @@ TEST_CASE("init_list: arr() factory — empty array", "[init_list]") {
     CHECK(ar.done());
 }
 
-TEST_CASE("init_list: map() factory — explicit object", "[init_list]") {
+TEST_CASE("init_list: map() factory -- explicit object", "[init_list]") {
     uint8_t buf[256];
     encoder enc(BUF, {{"data", map({{"x", 1}, {"y", 2}})}});
     auto data = enc.finish();
@@ -231,7 +231,7 @@ TEST_CASE("init_list: map() factory — explicit object", "[init_list]") {
     CHECK(int64_t{dm["y"]} == 2);
 }
 
-TEST_CASE("init_list: imap() factory — int-keyed map", "[init_list]") {
+TEST_CASE("init_list: imap() factory -- int-keyed map", "[init_list]") {
     uint8_t buf[256];
     encoder enc(BUF, {
         {"dict", imap({{1, "first"}, {2, "second"}, {3, "third"}})},

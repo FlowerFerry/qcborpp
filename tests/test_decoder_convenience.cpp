@@ -25,7 +25,7 @@ static const_byte_span encode_map(uint8_t* buf, size_t buf_size) {
 
 // ===== get_or =====
 
-TEST_CASE("convenience: get_or — existing key returns value", "[convenience]") {
+TEST_CASE("convenience: get_or -- existing key returns value", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -39,7 +39,7 @@ TEST_CASE("convenience: get_or — existing key returns value", "[convenience]")
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: get_or — missing key returns default", "[convenience]") {
+TEST_CASE("convenience: get_or -- missing key returns default", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -53,7 +53,7 @@ TEST_CASE("convenience: get_or — missing key returns default", "[convenience]"
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: get_or — type mismatch returns default", "[convenience]") {
+TEST_CASE("convenience: get_or -- type mismatch returns default", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -67,7 +67,7 @@ TEST_CASE("convenience: get_or — type mismatch returns default", "[convenience
 
 // ===== contains =====
 
-TEST_CASE("convenience: contains — existing key", "[convenience]") {
+TEST_CASE("convenience: contains -- existing key", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -80,7 +80,7 @@ TEST_CASE("convenience: contains — existing key", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: contains — missing key", "[convenience]") {
+TEST_CASE("convenience: contains -- missing key", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -93,7 +93,7 @@ TEST_CASE("convenience: contains — missing key", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: contains — does not consume cursor", "[convenience]") {
+TEST_CASE("convenience: contains -- does not consume cursor", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -108,7 +108,7 @@ TEST_CASE("convenience: contains — does not consume cursor", "[convenience]") 
 
 // ── contains(int64_t) for integer-keyed maps ──
 
-TEST_CASE("convenience: contains(int64_t) — existing key", "[convenience]") {
+TEST_CASE("convenience: contains(int64_t) -- existing key", "[convenience]") {
     dynamic_encoder enc;
     {
         auto m = enc.map();
@@ -127,7 +127,7 @@ TEST_CASE("convenience: contains(int64_t) — existing key", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: contains(int64_t) — missing key", "[convenience]") {
+TEST_CASE("convenience: contains(int64_t) -- missing key", "[convenience]") {
     dynamic_encoder enc;
     {
         auto m = enc.map();
@@ -145,7 +145,7 @@ TEST_CASE("convenience: contains(int64_t) — missing key", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: contains(int64_t) — mixed int/string keys", "[convenience]") {
+TEST_CASE("convenience: contains(int64_t) -- mixed int/string keys", "[convenience]") {
     dynamic_encoder enc;
     {
         auto m = enc.map();
@@ -167,7 +167,7 @@ TEST_CASE("convenience: contains(int64_t) — mixed int/string keys", "[convenie
 
 // ===== size =====
 
-TEST_CASE("convenience: size — flat map", "[convenience]") {
+TEST_CASE("convenience: size -- flat map", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -178,7 +178,7 @@ TEST_CASE("convenience: size — flat map", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: size — empty map", "[convenience]") {
+TEST_CASE("convenience: size -- empty map", "[convenience]") {
     uint8_t buf[256];
     encoder enc(BUF);
     enc.open_map();
@@ -195,7 +195,7 @@ TEST_CASE("convenience: size — empty map", "[convenience]") {
 
 // ===== for_each =====
 
-TEST_CASE("convenience: for_each — iterate all entries", "[convenience]") {
+TEST_CASE("convenience: for_each -- iterate all entries", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -215,7 +215,7 @@ TEST_CASE("convenience: for_each — iterate all entries", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: for_each — empty map", "[convenience]") {
+TEST_CASE("convenience: for_each -- empty map", "[convenience]") {
     uint8_t buf[256];
     encoder enc(BUF);
     enc.open_map();
@@ -232,7 +232,7 @@ TEST_CASE("convenience: for_each — empty map", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: for_each — chaining returns map_scope ref", "[convenience]") {
+TEST_CASE("convenience: for_each -- chaining returns map_scope ref", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -264,7 +264,7 @@ TEST_CASE("convenience: combined usage", "[convenience]") {
 
 // ===== get_or — syntactic sugar on map_scope =====
 
-TEST_CASE("convenience: get_or(map) — string key, existing", "[convenience]") {
+TEST_CASE("convenience: get_or(map) -- string key, existing", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -277,7 +277,7 @@ TEST_CASE("convenience: get_or(map) — string key, existing", "[convenience]") 
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: get_or(map) — string key, missing returns default", "[convenience]") {
+TEST_CASE("convenience: get_or(map) -- string key, missing returns default", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -290,7 +290,7 @@ TEST_CASE("convenience: get_or(map) — string key, missing returns default", "[
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: get_or(map) — int literal deduces correctly", "[convenience]") {
+TEST_CASE("convenience: get_or(map) -- int literal deduces correctly", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -306,7 +306,7 @@ TEST_CASE("convenience: get_or(map) — int literal deduces correctly", "[conven
 
 // ===== try_get — std::optional access =====
 
-TEST_CASE("convenience: try_get — existing key returns value", "[convenience]") {
+TEST_CASE("convenience: try_get -- existing key returns value", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -327,7 +327,7 @@ TEST_CASE("convenience: try_get — existing key returns value", "[convenience]"
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: try_get — missing key returns nullopt", "[convenience]") {
+TEST_CASE("convenience: try_get -- missing key returns nullopt", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -339,7 +339,7 @@ TEST_CASE("convenience: try_get — missing key returns nullopt", "[convenience]
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: try_get — type mismatch returns nullopt", "[convenience]") {
+TEST_CASE("convenience: try_get -- type mismatch returns nullopt", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -352,7 +352,7 @@ TEST_CASE("convenience: try_get — type mismatch returns nullopt", "[convenienc
 
 // ===== try_get on map_scope — direct map-level optional access =====
 
-TEST_CASE("convenience: try_get(map) — existing key returns value", "[convenience]") {
+TEST_CASE("convenience: try_get(map) -- existing key returns value", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -365,7 +365,7 @@ TEST_CASE("convenience: try_get(map) — existing key returns value", "[convenie
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: try_get(map) — missing key returns nullopt", "[convenience]") {
+TEST_CASE("convenience: try_get(map) -- missing key returns nullopt", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -377,7 +377,7 @@ TEST_CASE("convenience: try_get(map) — missing key returns nullopt", "[conveni
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: try_get(map) — type mismatch returns nullopt", "[convenience]") {
+TEST_CASE("convenience: try_get(map) -- type mismatch returns nullopt", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -390,7 +390,7 @@ TEST_CASE("convenience: try_get(map) — type mismatch returns nullopt", "[conve
 
 // ===== get_* — cross-numeric convert =====
 
-TEST_CASE("convenience: get_int64 — converts uint64", "[convenience]") {
+TEST_CASE("convenience: get_int64 -- converts uint64", "[convenience]") {
     uint8_t buf[128];
     encoder enc(byte_span{buf, sizeof(buf)});
     {
@@ -407,7 +407,7 @@ TEST_CASE("convenience: get_int64 — converts uint64", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: get_int64 — rejects non-numeric", "[convenience]") {
+TEST_CASE("convenience: get_int64 -- rejects non-numeric", "[convenience]") {
     uint8_t buf[128];
     auto data = encode_map(buf, sizeof(buf));
     decoder dec(data);
@@ -416,7 +416,7 @@ TEST_CASE("convenience: get_int64 — rejects non-numeric", "[convenience]") {
     CHECK(m["name"].get_or(int64_t(-1)) == -1);  // "name" is string → default
 }
 
-TEST_CASE("convenience: get_uint64 — converts int64", "[convenience]") {
+TEST_CASE("convenience: get_uint64 -- converts int64", "[convenience]") {
     uint8_t buf[128];
     encoder enc(byte_span{buf, sizeof(buf)});
     {
@@ -431,7 +431,7 @@ TEST_CASE("convenience: get_uint64 — converts int64", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: get_double — converts int64 and uint64", "[convenience]") {
+TEST_CASE("convenience: get_double -- converts int64 and uint64", "[convenience]") {
     uint8_t buf[128];
     encoder enc(byte_span{buf, sizeof(buf)});
     {
@@ -448,7 +448,7 @@ TEST_CASE("convenience: get_double — converts int64 and uint64", "[convenience
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: as_int64 — still strict rejects uint64", "[convenience]") {
+TEST_CASE("convenience: as_int64 -- still strict rejects uint64", "[convenience]") {
     uint8_t buf[128];
     encoder enc(byte_span{buf, sizeof(buf)});
     {
@@ -463,7 +463,7 @@ TEST_CASE("convenience: as_int64 — still strict rejects uint64", "[convenience
 
 // ===== get_or — cross-numeric convert =====
 
-TEST_CASE("convenience: get_or int64 — converts uint64", "[convenience]") {
+TEST_CASE("convenience: get_or int64 -- converts uint64", "[convenience]") {
     uint8_t buf[128];
     encoder enc(byte_span{buf, sizeof(buf)});
     { auto m = enc.map(); m["val"] = uint64_t(77); }
@@ -475,7 +475,7 @@ TEST_CASE("convenience: get_or int64 — converts uint64", "[convenience]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: get_or double — converts int64", "[convenience]") {
+TEST_CASE("convenience: get_or double -- converts int64", "[convenience]") {
     uint8_t buf[128];
     encoder enc(byte_span{buf, sizeof(buf)});
     { auto m = enc.map(); m["val"] = int64_t(3); }
@@ -489,7 +489,7 @@ TEST_CASE("convenience: get_or double — converts int64", "[convenience]") {
 
 // ===== try_get — cross-numeric convert =====
 
-TEST_CASE("convenience: try_get int64_t — converts double", "[convenience]") {
+TEST_CASE("convenience: try_get int64_t -- converts double", "[convenience]") {
     uint8_t buf[128];
     encoder enc(byte_span{buf, sizeof(buf)});
     { auto m = enc.map(); m["val"] = 3.14; }
@@ -505,7 +505,7 @@ TEST_CASE("convenience: try_get int64_t — converts double", "[convenience]") {
 
 // ===== empty — map_scope emptiness check =====
 
-TEST_CASE("convenience: empty — non-empty map returns false", "[convenience]") {
+TEST_CASE("convenience: empty -- non-empty map returns false", "[convenience]") {
     uint8_t buf[256];
     auto data = encode_map(buf, sizeof(buf));  // count, name, active, version, comment
     decoder dec(data);
@@ -516,7 +516,7 @@ TEST_CASE("convenience: empty — non-empty map returns false", "[convenience]")
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("convenience: empty — truly empty map returns true", "[convenience]") {
+TEST_CASE("convenience: empty -- truly empty map returns true", "[convenience]") {
     uint8_t buf[128];
     encoder enc(byte_span{buf, sizeof(buf)});
     { auto m = enc.map(); /* no entries */ }

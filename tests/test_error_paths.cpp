@@ -364,7 +364,7 @@ TEST_CASE("error: item_proxy map is_map is_array is_int64", "[error_paths]") {
 // Error code verification from raw QCBOR
 // ══════════════════════════════════════════════════════════════════════════
 
-TEST_CASE("error: raw QCBOR error code → qcborpp::errc", "[error_paths]") {
+TEST_CASE("error: raw QCBOR error code -> qcborpp::errc", "[error_paths]") {
     // Verify the static_cast mapping by checking a few known values
     REQUIRE(static_cast<int>(errc::success) == 0);
     REQUIRE(static_cast<int>(errc::buffer_too_small) == 1);

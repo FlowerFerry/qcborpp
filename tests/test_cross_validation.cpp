@@ -87,7 +87,7 @@ void qcbor_decode_walk(const_byte_span data,
 // Direction 1: QCBOR C encode → qcborpp decode
 // ══════════════════════════════════════════════════════════════════════════
 
-TEST_CASE("cross_val: qcbor-c→qcborpp int64", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp int64", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddInt64(c, -123);
@@ -104,7 +104,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp int64", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp uint64", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp uint64", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddUInt64(c, 100);
@@ -119,7 +119,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp uint64", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp text", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp text", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddSZString(c, "hello");
@@ -134,7 +134,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp text", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp bytes", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp bytes", "[cross_validation]") {
     uint8_t raw[] = {0x00, 0xFF, 0xAB};
     auto bytes = qcbor_encode_helper(false, [&](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
@@ -152,7 +152,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp bytes", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp double", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp double", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddDouble(c, 3.14);
@@ -167,7 +167,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp double", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp bool", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp bool", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddBool(c, true);
@@ -182,7 +182,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp bool", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp null", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp null", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddNULL(c);
@@ -195,7 +195,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp null", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp map", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp map", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenMap(c);
         QCBOREncode_AddSZString(c, "name");
@@ -212,7 +212,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp map", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp nested map/array", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp nested map/array", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenMap(c);
         QCBOREncode_AddSZString(c, "items");
@@ -237,7 +237,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp nested map/array", "[cross_validation]")
 // Direction 2: qcborpp static encoder → QCBOR C decode
 // ══════════════════════════════════════════════════════════════════════════
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c int64", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c int64", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -258,7 +258,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c int64", "[cross_validation]") {
     REQUIRE(values[2] == 456789);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c uint64", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c uint64", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -279,7 +279,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c uint64", "[cross_validation]") {
     REQUIRE(values[1] == 10000000000ULL);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c text", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c text", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -301,7 +301,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c text", "[cross_validation]") {
     REQUIRE(values[1] == "world");
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c bytes", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c bytes", "[cross_validation]") {
     uint8_t buf[256];
     uint8_t raw[] = {0x00, 0xFF, 0xAB};
     encoder enc(byte_span{buf, sizeof(buf)});
@@ -323,7 +323,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c bytes", "[cross_validation]") {
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c double", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c double", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -342,7 +342,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c double", "[cross_validation]") {
     REQUIRE_THAT(values[1], Catch::Matchers::WithinRel(-1.5, 1e-9));
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c bool", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c bool", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -361,7 +361,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c bool", "[cross_validation]") {
     REQUIRE(types[1] == QCBOR_TYPE_FALSE);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c null", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c null", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -376,7 +376,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c null", "[cross_validation]") {
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c map", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c map", "[cross_validation]") {
     uint8_t buf[512];
     encoder enc(byte_span{buf, sizeof(buf)});
     {
@@ -406,7 +406,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c map", "[cross_validation]") {
 // Direction 3: qcborpp dynamic_encoder → QCBOR C decode
 // ══════════════════════════════════════════════════════════════════════════
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c int64", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c int64", "[cross_validation]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_int64(-123);
@@ -426,7 +426,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c int64", "[cross_validation]") {
     REQUIRE(values[2] == 456789);
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c text", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c text", "[cross_validation]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_text("dynamic");
@@ -447,7 +447,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c text", "[cross_validation]") {
     REQUIRE(values[1] == "test");
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c map", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c map", "[cross_validation]") {
     dynamic_encoder enc;
     {
         auto m = enc.map();
@@ -472,7 +472,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c map", "[cross_validation]") {
     REQUIRE(num == 42);
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c double", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c double", "[cross_validation]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_double(2.718);
@@ -491,7 +491,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c double", "[cross_validation]") {
 // Direction 4: qcborpp encoder → qcborpp encoder re-encode → binary compare
 // ══════════════════════════════════════════════════════════════════════════
 
-TEST_CASE("cross_val: qcborpp→qcborpp re-encode binary match", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp->qcborpp re-encode binary match", "[cross_validation]") {
     // Encode with static encoder
     uint8_t buf1[512];
     encoder enc1(byte_span{buf1, sizeof(buf1)});
@@ -530,7 +530,7 @@ TEST_CASE("cross_val: qcborpp→qcborpp re-encode binary match", "[cross_validat
     REQUIRE(std::memcmp(original.data(), re_encoded.data(), original.size()) == 0);
 }
 
-TEST_CASE("cross_val: qcborpp→qcborpp re-encode array match", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp->qcborpp re-encode array match", "[cross_validation]") {
     uint8_t buf1[256];
     encoder enc1(byte_span{buf1, sizeof(buf1)});
     {
@@ -560,7 +560,7 @@ TEST_CASE("cross_val: qcborpp→qcborpp re-encode array match", "[cross_validati
     REQUIRE(std::memcmp(original.data(), re_encoded.data(), original.size()) == 0);
 }
 
-TEST_CASE("cross_val: qcborpp→qcborpp re-encode nested match", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp->qcborpp re-encode nested match", "[cross_validation]") {
     uint8_t buf1[512];
     encoder enc1(byte_span{buf1, sizeof(buf1)});
     {
@@ -592,7 +592,7 @@ TEST_CASE("cross_val: qcborpp→qcborpp re-encode nested match", "[cross_validat
     REQUIRE(std::memcmp(original.data(), re_encoded.data(), original.size()) == 0);
 }
 
-TEST_CASE("cross_val: qcborpp→qcborpp re-encode tagged value match", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp->qcborpp re-encode tagged value match", "[cross_validation]") {
     uint8_t buf1[256];
     encoder enc1(byte_span{buf1, sizeof(buf1)});
     // Tag must attach to VALUE between key and value
@@ -751,7 +751,7 @@ TEST_CASE("cross_val: rfc8949 known binary - dynamic_encoder byte match", "[cros
 // Direction 1 extended: QCBOR C encode tagged types → qcborpp decode
 // ══════════════════════════════════════════════════════════════════════════
 
-TEST_CASE("cross_val: qcbor-c→qcborpp bignum", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp bignum", "[cross_validation]") {
     uint8_t bn[3] = {0x01, 0x23, 0x45};
     auto bytes = qcbor_encode_helper(false, [&](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
@@ -775,7 +775,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp bignum", "[cross_validation]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp uuid", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp uuid", "[cross_validation]") {
     uint8_t uuid[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
     auto bytes = qcbor_encode_helper(false, [&](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
@@ -798,7 +798,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp uuid", "[cross_validation]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp decimal_fraction", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp decimal_fraction", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddTag(c, 4);
@@ -822,7 +822,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp decimal_fraction", "[cross_validation]")
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp bigfloat", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp bigfloat", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddTag(c, 5);
@@ -846,7 +846,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp bigfloat", "[cross_validation]") {
     REQUIRE_FALSE(dec.finish());
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp uri", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp uri", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddTag(c, 32);
@@ -862,7 +862,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp uri", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp b64_text", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp b64_text", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddTag(c, 34);
@@ -878,7 +878,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp b64_text", "[cross_validation]") {
     dec.finish();
 }
 
-TEST_CASE("cross_val: qcbor-c→qcborpp date_epoch", "[cross_validation]") {
+TEST_CASE("cross_val: qcbor-c->qcborpp date_epoch", "[cross_validation]") {
     auto bytes = qcbor_encode_helper(false, [](QCBOREncodeContext* c) {
         QCBOREncode_OpenArray(c);
         QCBOREncode_AddTag(c, 1);
@@ -898,7 +898,7 @@ TEST_CASE("cross_val: qcbor-c→qcborpp date_epoch", "[cross_validation]") {
 // Direction 2 extended: qcborpp static encoder tagged → QCBOR C decode
 // ══════════════════════════════════════════════════════════════════════════
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c bignum", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c bignum", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     uint8_t bn[2] = {0xFF, 0x00};
@@ -917,7 +917,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c bignum", "[cross_validation]") {
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c uuid", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c uuid", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     uint8_t uuid[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
@@ -933,7 +933,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c uuid", "[cross_validation]") {
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c decimal_fraction", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c decimal_fraction", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -952,7 +952,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c decimal_fraction", "[cross_valida
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c bigfloat", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c bigfloat", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -971,7 +971,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c bigfloat", "[cross_validation]") 
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c uri", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c uri", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -987,7 +987,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c uri", "[cross_validation]") {
     CHECK(uri == "https://test.local");
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c b64_text", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c b64_text", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -1003,7 +1003,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c b64_text", "[cross_validation]") 
     CHECK(b64 == "YWJj");
 }
 
-TEST_CASE("cross_val: qcborpp-static→qcbor-c date_epoch", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-static->qcbor-c date_epoch", "[cross_validation]") {
     uint8_t buf[256];
     encoder enc(byte_span{buf, sizeof(buf)});
     enc.open_array();
@@ -1023,7 +1023,7 @@ TEST_CASE("cross_val: qcborpp-static→qcbor-c date_epoch", "[cross_validation]"
 // Direction 3 extended: qcborpp dynamic_encoder tagged → QCBOR C decode
 // ══════════════════════════════════════════════════════════════════════════
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c bignum", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c bignum", "[cross_validation]") {
     dynamic_encoder enc;
     uint8_t bn[3] = {0xAA, 0xBB, 0xCC};
     enc.open_array();
@@ -1038,7 +1038,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c bignum", "[cross_validation]") {
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c uuid", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c uuid", "[cross_validation]") {
     dynamic_encoder enc;
     uint8_t uuid[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
     enc.open_array();
@@ -1053,7 +1053,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c uuid", "[cross_validation]") {
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c decimal_fraction", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c decimal_fraction", "[cross_validation]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_decimal_fraction(42, -1);
@@ -1067,7 +1067,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c decimal_fraction", "[cross_valid
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c bigfloat", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c bigfloat", "[cross_validation]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_bigfloat(255, 8);
@@ -1081,7 +1081,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c bigfloat", "[cross_validation]")
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c date_epoch", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c date_epoch", "[cross_validation]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_date_epoch(1600000000);
@@ -1097,7 +1097,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c date_epoch", "[cross_validation]
 }
 
 // Direction 3 gap fillers: bytes, bool, null that were missing
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c bytes", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c bytes", "[cross_validation]") {
     dynamic_encoder enc;
     uint8_t raw[] = {0xDE, 0xAD};
     enc.open_array();
@@ -1115,7 +1115,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c bytes", "[cross_validation]") {
     REQUIRE(found);
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c bool", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c bool", "[cross_validation]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_bool(true);
@@ -1133,7 +1133,7 @@ TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c bool", "[cross_validation]") {
     CHECK(types[1] == QCBOR_TYPE_FALSE);
 }
 
-TEST_CASE("cross_val: qcborpp-dynamic→qcbor-c null", "[cross_validation]") {
+TEST_CASE("cross_val: qcborpp-dynamic->qcbor-c null", "[cross_validation]") {
     dynamic_encoder enc;
     enc.open_array();
     enc.add_null();

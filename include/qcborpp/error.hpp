@@ -8,6 +8,7 @@
 #ifndef QCBORPP_ERROR_HPP
 #define QCBORPP_ERROR_HPP
 
+#include <cstdint>
 #include <system_error>
 #include <stdexcept>
 #include <string>
