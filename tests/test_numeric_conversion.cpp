@@ -152,9 +152,14 @@ TEST_CASE("get_double: from UINT64_MAX loses precision", "[numeric_convert]") {
     {
         auto m = dec.map();
         double d = m["v"].get_double();
-        // UINT64_MAX = 18446744073709551615, > 2^53 → precision loss
+        // UINT64_MAX = 2^64 - 1, not exactly representable in double (> 2^53).
+        // Nearest IEEE 754 double is exactly 2^64 (exponent=64, mantissa=0).
+        // static_cast<uint64_t>(2^64) is UB — behaviour differs across
+        // architectures (x86 wraps, ARM saturates). Compare the double value
+        // directly: it must equal the IEEE 754 rounding of UINT64_MAX (i.e.
+        // 2^64), which proves the original integer value was not preserved.
         CHECK(d > 0.0);
-        CHECK(static_cast<uint64_t>(d) != UINT64_MAX); // round-trip fails
+        CHECK(d == static_cast<double>(UINT64_MAX)); // rounds to 2^64
     }
     REQUIRE_FALSE(dec.finish());
 }
