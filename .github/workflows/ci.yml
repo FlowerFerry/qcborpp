@@ -93,9 +93,12 @@ jobs:
           -DCMAKE_SYSTEM_PROCESSOR=arm
           -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc
           -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++
+          -DCMAKE_CXX_FLAGS=-Wno-psabi
           -DCMAKE_FIND_ROOT_PATH=/usr/arm-linux-gnueabihf
       - name: Build
         run: cmake --build build
+        env:
+          QEMU_LD_PREFIX: /usr/arm-linux-gnueabihf
       - name: Test
         run: ctest --test-dir build --output-on-failure --timeout 120
         env:
